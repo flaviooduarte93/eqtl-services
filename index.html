@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equatorial Energia — Serviços de Campo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ======================================================
+  // COLE SUAS CREDENCIAIS FIREBASE AQUI
+  // ======================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzNfU9IWQ-0yJyX8qMRGv9QYqKPrZyXG8",
+    authDomain: "misc-services-50755.firebaseapp.com",
+    projectId: "misc-services-50755",
+    storageBucket: "misc-services-50755.firebasestorage.app",
+    messagingSenderId: "1030550460908",
+    appId: "1:1030550460908:web:e717c7f32539a3d6e708c9",
+    measurementId: "G-5G0ZR7ZXCF"
+  };
+  // ======================================================
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window._auth = auth;
+  window._db = db;
+  window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch };
+
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --surface2: #f0f4fa;
+  --border: #dde3ee;
+  --accent: #1a2a8f;
+  --accent2: #0d1a6e;
+  --accent3: #e87722;
+  --danger: #e53e3e;
+  --warn: #e87722;
+  --text: #0d1230;
+  --muted: #6b7a99;
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+/* LOADING */
+#loadingScreen {
+  position: fixed; inset: 0; background: linear-gradient(135deg, #1a2a8f, #e87722);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; flex-direction: column; gap: 16px;
+}
+.loading-logo { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: white; letter-spacing: -1px; }
+.loading-sub { color: rgba(255,255,255,0.7); font-size: 13px; }
+.spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* LOGIN */
+#loginScreen {
+  min-height: 100vh; display: none; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d1230 0%, #1a2a8f 45%, #e87722 100%);
+  padding: 24px; position: relative; overflow: hidden;
+}
+#loginScreen::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 50%),
+              radial-gradient(circle at 20% 80%, rgba(0,0,0,0.1) 0%, transparent 50%);
+}
+.login-card {
+  background: white; border-radius: 24px; padding: 48px 40px;
+  max-width: 420px; width: 100%; position: relative; z-index: 1;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+  animation: fadeUp 0.6s ease both;
+}
+.login-logo {
+  font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;
+  background: linear-gradient(135deg, #1a2a8f, #e87722); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; letter-spacing: -1px;
+}
+.login-tagline { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+.login-tabs { display: flex; gap: 0; margin-bottom: 28px; background: var(--bg); border-radius: 10px; padding: 4px; }
+.login-tab {
+  flex: 1; padding: 8px; border: none; background: transparent; border-radius: 8px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer;
+  color: var(--muted); transition: all 0.2s;
+}
+.login-tab.active { background: white; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 6px; display: block; letter-spacing: 0.3px; }
+.form-input {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px;
+  color: var(--text); outline: none; transition: border-color 0.2s; background: var(--surface2);
+}
+.form-input:focus { border-color: var(--accent); background: white; }
+.form-select {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px;
+  color: var(--text); outline: none; background: var(--surface2); appearance: none;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.form-select:focus { border-color: var(--accent); }
+.btn-green {
+  width: 100%; padding: 13px; background: var(--accent); color: white;
+  border: none; border-radius: 10px; font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  margin-top: 8px; letter-spacing: 0.3px;
+}
+.btn-green:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,42,143,0.35); }
+.btn-green:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.form-error { font-size: 12px; color: var(--danger); margin-top: 8px; display: none; text-align: center; }
+.form-error.show { display: block; }
+
+/* APP SHELL */
+#appShell { display: none; flex-direction: column; min-height: 100vh; }
+.topbar {
+  background: white; border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 60px; display: flex; align-items: center;
+  justify-content: space-between; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+}
+.topbar-logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; background: linear-gradient(135deg, #1a2a8f, #e87722); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-user { font-size: 13px; color: var(--muted); }
+.topbar-user span { color: var(--text); font-weight: 500; }
+.btn-logout {
+  padding: 7px 14px; border: 1.5px solid var(--border); background: transparent;
+  border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--muted);
+  font-family: 'Inter', sans-serif; transition: all 0.2s;
+}
+.btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+/* NAV */
+.nav-tabs {
+  background: white; border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; gap: 0;
+}
+.nav-tab {
+  padding: 14px 20px; border: none; background: transparent; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: var(--muted);
+  border-bottom: 2px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+}
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.nav-tab.locked { opacity: 0.4; cursor: not-allowed; }
+
+/* MAIN CONTENT */
+.main-content { flex: 1; padding: 28px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+/* UPLOAD SCREEN */
+.upload-header { margin-bottom: 28px; }
+.upload-header h1 { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+.upload-header p { color: var(--muted); font-size: 14px; }
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 16px; padding: 60px 40px;
+  text-align: center; background: white; cursor: pointer; transition: all 0.25s;
+  margin-bottom: 24px;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(0,166,81,0.03); }
+.upload-icon { font-size: 48px; margin-bottom: 16px; }
+.upload-zone h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.upload-zone p { color: var(--muted); font-size: 13px; }
+.upload-zone input { display: none; }
+.btn-upload {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; margin-top: 16px; font-family: 'Inter', sans-serif; transition: all 0.2s;
+}
+.btn-upload:hover { background: var(--accent2); }
+
+.upload-status {
+  background: white; border-radius: 12px; padding: 20px 24px;
+  border: 1px solid var(--border); display: none;
+}
+.upload-status.show { display: block; }
+.status-row { display: flex; align-items: center; gap: 12px; }
+.status-icon { font-size: 24px; }
+.status-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.status-text p { font-size: 12px; color: var(--muted); }
+
+/* MAP SCREEN */
+#mapContainer { display: none; flex-direction: column; height: calc(100vh - 120px); }
+#mapContainer.active { display: flex; }
+.map-toolbar {
+  background: white; border-radius: 12px; padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  box-shadow: var(--shadow); flex-wrap: wrap;
+}
+.btn-search {
+  display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+  background: var(--accent); color: white; border: none; border-radius: 8px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-search:hover { background: var(--accent2); }
+.btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-reset {
+  padding: 10px 16px; background: transparent; border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.btn-reset:hover { border-color: var(--text); color: var(--text); }
+
+.stat-card {
+  background: linear-gradient(135deg, #1a2a8f, #e87722);
+  color: white; border-radius: 10px; padding: 10px 18px;
+  display: flex; align-items: center; gap: 10px; margin-left: auto;
+}
+.stat-card .stat-num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
+.stat-card .stat-label { font-size: 11px; opacity: 0.85; }
+
+#map { flex: 1; border-radius: 12px; box-shadow: var(--shadow); z-index: 1; }
+
+/* POPUP */
+.popup-content { font-family: 'Inter', sans-serif; min-width: 200px; }
+.popup-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.popup-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0f4f8; }
+.popup-row:last-of-type { border: none; }
+.popup-key { color: var(--muted); }
+.popup-val { font-weight: 500; }
+.btn-concluir {
+  width: 100%; margin-top: 12px; padding: 8px;
+  background: var(--danger); color: white; border: none;
+  border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s;
+}
+.btn-concluir:hover { background: #c53030; }
+
+/* BADGE */
+.badge-equatorial { background: rgba(26,42,143,0.1); color: #1a2a8f; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
+.badge-parceira { background: rgba(246,173,85,0.15); color: #c05621; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
+
+/* RADIUS CIRCLE */
+.radius-info { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.dot-green { width: 8px; height: 8px; border-radius: 50%; background: #1a2a8f; flex-shrink: 0; }
+.dot-orange { width: 8px; height: 8px; border-radius: 50%; background: #f6ad55; flex-shrink: 0; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--text); color: white; padding: 12px 20px; border-radius: 10px;
+  font-size: 13px; z-index: 9999; transition: transform 0.3s ease; white-space: nowrap;
+  box-shadow: var(--shadow-lg);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { background: var(--accent); }
+.toast.error { background: var(--danger); }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 60px 24px; color: var(--muted); }
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; }
+
+/* ANIMATIONS */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) {
+  .login-card { padding: 32px 24px; }
+  .main-content { padding: 16px; }
+  .map-toolbar { gap: 8px; }
+  .stat-card { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <div class="loading-logo">equatorial</div>
+  <div class="spinner"></div>
+  <div class="loading-sub">Carregando sistema...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">equatorial</div>
+    <div class="login-tagline">Sistema de Serviços de Campo</div>
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="switchTab('login')">Entrar</button>
+      <button class="login-tab" onclick="switchTab('register')">Criar conta</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">E-MAIL</label>
+        <input type="email" class="form-input" id="loginEmail" placeholder="seu@email.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">SENHA</label>
+        <input type="password" class="form-input" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
+      <div class="form-error" id="loginError"></div>
+      <button class="btn-green" id="loginBtn" onclick="doLogin()">Entrar</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="registerForm" style="display:none">
+      <div class="form-group">
+        <label class="form-label">NOME COMPLETO</label>
+        <input type="text" class="form-input" id="regName" placeholder="Seu nome" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-MAIL</label>
+        <input type="email" class="form-input" id="regEmail" placeholder="seu@email.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">SENHA</label>
+        <input type="password" class="form-input" id="regPassword" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">PERFIL</label>
+        <select class="form-select" id="regPerfil">
+          <option value="" disabled selected>Selecione seu perfil...</option>
+          <option value="equatorial">Funcionário da Equatorial</option>
+          <option value="parceira">Funcionário da Empresa Parceira</option>
+        </select>
+      </div>
+      <div class="form-error" id="registerError"></div>
+      <button class="btn-green" id="registerBtn" onclick="doRegister()">Criar conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appShell">
+  <div class="topbar">
+    <div class="topbar-logo">equatorial</div>
+    <div class="topbar-right">
+      <div class="topbar-user">Olá, <span id="userNameDisplay">—</span> <span id="userBadge"></span></div>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab" id="tabUpload" onclick="goTab('upload')">📁 Anexar Arquivo</button>
+    <button class="nav-tab active" id="tabMap" onclick="goTab('map')">🗺️ Mapa</button>
+  </div>
+
+  <!-- UPLOAD TAB -->
+  <div class="main-content" id="screenUpload" style="display:none">
+    <div class="upload-header">
+      <h1>Anexar Arquivo Excel</h1>
+      <p>Envie o arquivo .xlsx com as ocorrências. Os dados sobrescrevem os anteriores.</p>
+    </div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <div class="upload-icon">📊</div>
+      <h3>Arraste o arquivo aqui</h3>
+      <p>ou clique para selecionar</p>
+      <p style="margin-top:8px;font-size:11px;color:#a0aec0">Apenas arquivos .xlsx</p>
+      <button class="btn-upload" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Selecionar arquivo</button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+    </div>
+    <div class="upload-status" id="uploadStatus">
+      <div class="status-row">
+        <div class="status-icon" id="statusIcon">✅</div>
+        <div class="status-text">
+          <h4 id="statusTitle">Arquivo carregado com sucesso!</h4>
+          <p id="statusDesc"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP TAB -->
+  <div style="padding: 0 24px 24px; flex:1; display:flex; flex-direction:column;" id="screenMap">
+    <div class="map-toolbar">
+      <button class="btn-search" id="btnBuscar" onclick="buscarProximos()">📍 Buscar serviços próximos</button>
+      <button class="btn-reset" onclick="resetarBusca()">Mostrar todos</button>
+      <div class="radius-info"><div class="dot-green"></div> Normal &nbsp; <div class="dot-orange"></div> Próximo (≤2,5km)</div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-num" id="statNum">0</div>
+          <div class="stat-label" id="statLabel">serviços na base</div>
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+let currentUser = null;
+let currentPerfil = null;
+let allServices = [];
+let map = null;
+let markers = [];
+let radiusCircle = null;
+let firebaseReady = false;
+
+// Wait for firebase
+window.addEventListener('firebase-ready', () => {
+  firebaseReady = true;
+  initApp();
+});
+
+function initApp() {
+  const { onAuthStateChanged } = window._fbFns;
+  const auth = window._auth;
+
+  onAuthStateChanged(auth, async (user) => {
+    document.getElementById('loadingScreen').style.display = 'none';
+    if (user) {
+      await loadUserProfile(user);
+      showApp();
+    } else {
+      showLogin();
+    }
+  });
+}
+
+async function loadUserProfile(user) {
+  const { doc, getDoc } = window._fbFns;
+  const db = window._db;
+  const snap = await getDoc(doc(db, 'users', user.uid));
+  if (snap.exists()) {
+    const data = snap.data();
+    currentUser = { uid: user.uid, email: user.email, name: data.name, perfil: data.perfil };
+    currentPerfil = data.perfil;
+  }
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appShell').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'flex';
+
+  document.getElementById('userNameDisplay').textContent = currentUser?.name || currentUser?.email;
+  const badge = document.getElementById('userBadge');
+  if (currentPerfil === 'equatorial') {
+    badge.innerHTML = '<span class="badge-equatorial">Equatorial</span>';
+  } else {
+    badge.innerHTML = '<span class="badge-parceira">Parceira</span>';
+  }
+
+  // Controle de acesso
+  const tabUpload = document.getElementById('tabUpload');
+  if (currentPerfil !== 'equatorial') {
+    tabUpload.classList.add('locked');
+    tabUpload.title = 'Acesso restrito a funcionários da Equatorial';
+  }
+
+  goTab('map');
+  initMap();
+  loadServicesFromDB();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.login-tab').forEach((t, i) => t.classList.toggle('active', (tab==='login' && i===0)||(tab==='register' && i===1)));
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+function goTab(tab) {
+  if (tab === 'upload' && currentPerfil !== 'equatorial') {
+    showToast('Acesso restrito a funcionários da Equatorial', 'error'); return;
+  }
+  document.getElementById('screenUpload').style.display = tab === 'upload' ? 'block' : 'none';
+  document.getElementById('screenMap').style.display = tab === 'map' ? 'flex' : 'none';
+  document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
+  document.getElementById('tabMap').classList.toggle('active', tab === 'map');
+  if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  if (!email || !pass) { showError(err, 'Preencha e-mail e senha.'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const { signInWithEmailAndPassword } = window._fbFns;
+    const cred = await signInWithEmailAndPassword(window._auth, email, pass);
+    await loadUserProfile(cred.user);
+    showApp();
+  } catch(e) {
+    showError(err, 'E-mail ou senha incorretos.');
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+async function doRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPassword').value;
+  const perfil = document.getElementById('regPerfil').value;
+  const btn = document.getElementById('registerBtn');
+  const err = document.getElementById('registerError');
+  if (!name || !email || !pass || !perfil) { showError(err, 'Preencha todos os campos.'); return; }
+  if (pass.length < 6) { showError(err, 'Senha mínima de 6 caracteres.'); return; }
+  btn.disabled = true; btn.textContent = 'Criando conta...';
+  try {
+    const { createUserWithEmailAndPassword, doc, setDoc } = window._fbFns;
+    const cred = await createUserWithEmailAndPassword(window._auth, email, pass);
+    await setDoc(doc(window._db, 'users', cred.user.uid), { name, email, perfil });
+    currentUser = { uid: cred.user.uid, email, name, perfil };
+    currentPerfil = perfil;
+    showApp();
+    showToast('Conta criada com sucesso!', 'success');
+  } catch(e) {
+    let msg = 'Erro ao criar conta.';
+    if (e.code === 'auth/email-already-in-use') msg = 'E-mail já cadastrado.';
+    showError(err, msg);
+    btn.disabled = false; btn.textContent = 'Criar conta';
+  }
+}
+
+async function doLogout() {
+  const { signOut } = window._fbFns;
+  await signOut(window._auth);
+  currentUser = null; currentPerfil = null; allServices = [];
+  showLogin();
+}
+
+// MAP
+function initMap() {
+  if (map) return;
+  map = L.map('map').setView([-15.7801, -47.9292], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+}
+
+function greenIcon() {
+  return L.divIcon({ className: '', html: '<div style="width:16px;height:16px;background:#1a2a8f;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>', iconSize:[16,16], iconAnchor:[8,8] });
+}
+function orangeIcon() {
+  return L.divIcon({ className: '', html: '<div style="width:20px;height:20px;background:#f6ad55;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', iconSize:[20,20], iconAnchor:[10,10] });
+}
+
+function renderMarkers(services, proximos = null) {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  services.forEach(s => {
+    const isProx = proximos ? proximos.has(s.id) : false;
+    const icon = isProx ? orangeIcon() : greenIcon();
+    const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+    m.bindPopup(`
+      <div class="popup-content">
+        <div class="popup-title">🔧 Ocorrência ${s.ocorrencia}</div>
+        <div class="popup-row"><span class="popup-key">Nº Ocorrência</span><span class="popup-val">${s.ocorrencia}</span></div>
+        <div class="popup-row"><span class="popup-key">Latitude</span><span class="popup-val">${s.lat}</span></div>
+        <div class="popup-row"><span class="popup-key">Longitude</span><span class="popup-val">${s.lng}</span></div>
+        ${isProx ? '<div style="font-size:11px;color:#c05621;margin-top:6px;">📍 Dentro do raio de 2,5km</div>' : ''}
+        <button class="btn-concluir" onclick="concluirServico('${s.id}', this)">✓ Marcar como concluído</button>
+      </div>`);
+    markers.push(m);
+  });
+  updateStat(services.length, proximos !== null);
+  if (services.length > 0) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+}
+
+function updateStat(count, filtered) {
+  document.getElementById('statNum').textContent = count;
+  document.getElementById('statLabel').textContent = filtered ? 'serviços no raio de 2,5km' : 'serviços na base';
+}
+
+async function concluirServico(id, btn) {
+  if (!confirm('Marcar esta ocorrência como concluída e removê-la da base?')) return;
+  btn.disabled = true; btn.textContent = 'Removendo...';
+  try {
+    const { doc, deleteDoc } = window._fbFns;
+    await deleteDoc(doc(window._db, 'services', id));
+    allServices = allServices.filter(s => s.id !== id);
+    renderMarkers(allServices);
+    showToast('Serviço concluído e removido!', 'success');
+  } catch(e) {
+    showToast('Erro ao remover serviço.', 'error');
+    btn.disabled = false; btn.textContent = '✓ Marcar como concluído';
+  }
+}
+
+function buscarProximos() {
+  const btn = document.getElementById('btnBuscar');
+  btn.disabled = true; btn.textContent = '📍 Buscando...';
+  if (!navigator.geolocation) { showToast('GPS não disponível.', 'error'); btn.disabled=false; btn.textContent='📍 Buscar serviços próximos'; return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    if (radiusCircle) map.removeLayer(radiusCircle);
+    radiusCircle = L.circle([lat, lng], { radius: 2500, color: '#1a2a8f', fillColor: '#1a2a8f', fillOpacity: 0.08, weight: 2 }).addTo(map);
+    L.marker([lat, lng], { icon: L.divIcon({ className:'', html:'<div style="width:14px;height:14px;background:#1a202c;border:3px solid white;border-radius:50%;"></div>', iconSize:[14,14], iconAnchor:[7,7] }) }).addTo(map);
+    const proxSet = new Set();
+    allServices.forEach(s => {
+      const d = haversine(lat, lng, s.lat, s.lng);
+      if (d <= 2500) proxSet.add(s.id);
+    });
+    renderMarkers(allServices, proxSet);
+    map.setView([lat, lng], 13);
+    showToast(`${proxSet.size} serviço(s) encontrado(s) no raio de 2,5km`, 'success');
+    btn.disabled = false; btn.textContent = '📍 Buscar serviços próximos';
+  }, () => {
+    showToast('Não foi possível obter localização.', 'error');
+    btn.disabled = false; btn.textContent = '📍 Buscar serviços próximos';
+  });
+}
+
+function resetarBusca() {
+  if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+  renderMarkers(allServices);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// EXCEL UPLOAD
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!file.name.match(/\.(xlsx|xls)$/i)) { showToast('Apenas arquivos .xlsx são aceitos.', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const services = [];
+    rows.forEach((row, idx) => {
+      const keys = Object.keys(row).map(k => k.toLowerCase().trim());
+      const getVal = (aliases) => {
+        for (const alias of aliases) {
+          const key = Object.keys(row).find(k => k.toLowerCase().includes(alias));
+          if (key && row[key] !== '') return row[key];
+        }
+        return null;
+      };
+      const ocorrencia = getVal(['ocorrencia','ocorrência','numero','número','num','nro','id']);
+      const lat = parseFloat(getVal(['lat','latitude']));
+      const lng = parseFloat(getVal(['lon','lng','long','longitude']));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        services.push({ id: `svc_${Date.now()}_${idx}`, ocorrencia: ocorrencia || `Linha ${idx+1}`, lat, lng });
+      }
+    });
+    await saveServicesToDB(services);
+    showUploadStatus(true, `${services.length} serviço(s) carregado(s) de ${rows.length} linhas.`);
+    renderMarkers(allServices);
+    showToast(`${services.length} serviços importados!`, 'success');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function saveServicesToDB(services) {
+  const { collection, getDocs, writeBatch, doc, setDoc } = window._fbFns;
+  const db = window._db;
+  // Clear existing
+  const snap = await getDocs(collection(db, 'services'));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  // Save new
+  const batch2 = writeBatch(db);
+  services.forEach(s => batch2.set(doc(db, 'services', s.id), s));
+  await batch2.commit();
+  allServices = services;
+}
+
+async function loadServicesFromDB() {
+  const { collection, getDocs } = window._fbFns;
+  const snap = await getDocs(collection(window._db, 'services'));
+  allServices = snap.docs.map(d => d.data());
+  renderMarkers(allServices);
+}
+
+function showUploadStatus(ok, msg) {
+  const el = document.getElementById('uploadStatus');
+  document.getElementById('statusIcon').textContent = ok ? '✅' : '❌';
+  document.getElementById('statusTitle').textContent = ok ? 'Arquivo carregado com sucesso!' : 'Erro ao carregar arquivo';
+  document.getElementById('statusDesc').textContent = msg;
+  el.classList.add('show');
+}
+
+// UTILS
+function showError(el, msg) { el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 4000); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
