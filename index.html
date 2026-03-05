@@ -553,13 +553,19 @@ function orangeIcon() {
   return L.divIcon({ className: '', html: '<div style="width:20px;height:20px;background:#f6ad55;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', iconSize:[20,20], iconAnchor:[10,10] });
 }
 
-function renderMarkers(services, proximos = null) {
+function renderMarkers(services, proximos = null, showAll = false) {
   markers.forEach(m => map.removeLayer(m));
   markers = [];
-  services.forEach(s => {
+
+  // Only show markers if search was done (proximos set) or showAll explicitly
+  const toShow = (proximos !== null || showAll) ? services : [];
+
+  toShow.forEach(s => {
     const isProx = proximos ? proximos.has(s.id) : false;
     const icon = isProx ? orangeIcon() : greenIcon();
     const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
+    const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lng}&navigate=yes`;
     m.bindPopup(`
       <div class="popup-content">
         <div class="popup-title">🔧 Ocorrência ${s.ocorrencia}</div>
@@ -567,12 +573,25 @@ function renderMarkers(services, proximos = null) {
         <div class="popup-row"><span class="popup-key">Latitude</span><span class="popup-val">${s.lat}</span></div>
         <div class="popup-row"><span class="popup-key">Longitude</span><span class="popup-val">${s.lng}</span></div>
         ${isProx ? '<div style="font-size:11px;color:#c05621;margin-top:6px;">📍 Dentro do raio de 2,5km</div>' : ''}
+        <div style="display:flex;gap:6px;margin-top:12px;">
+          <a href="${googleMapsUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#1a2a8f;color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🗺️ Google Maps</a>
+          <a href="${wazeUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#33ccff;color:#0d1230;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🚗 Waze</a>
+        </div>
         <button class="btn-concluir" onclick="concluirServico('${s.id}', this)">✓ Marcar como concluído</button>
       </div>`);
     markers.push(m);
   });
-  updateStat(services.length, proximos !== null);
-  if (services.length > 0) {
+
+  // Stat: if no search done, show total base count; if search done, show proximos count
+  if (proximos !== null) {
+    updateStat(proximos.size, true);
+  } else if (showAll) {
+    updateStat(services.length, false);
+  } else {
+    updateStat(allServices.length, false);
+  }
+
+  if (toShow.length > 0 && proximos !== null) {
     const group = L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.2));
   }
@@ -613,7 +632,9 @@ function buscarProximos() {
       const d = haversine(lat, lng, s.lat, s.lng);
       if (d <= 2500) proxSet.add(s.id);
     });
-    renderMarkers(allServices, proxSet);
+    // Only show services within radius
+    const proxServices = allServices.filter(s => proxSet.has(s.id));
+    renderMarkers(proxServices, proxSet);
     map.setView([lat, lng], 13);
     showToast(`${proxSet.size} serviço(s) encontrado(s) no raio de 2,5km`, 'success');
     btn.disabled = false; btn.textContent = '📍 Buscar serviços próximos';
@@ -625,7 +646,7 @@ function buscarProximos() {
 
 function resetarBusca() {
   if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
-  renderMarkers(allServices);
+  renderMarkers(allServices, null, true);
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -670,8 +691,8 @@ function handleFile(file) {
       }
     });
     await saveServicesToDB(services);
-    showUploadStatus(true, `${services.length} serviço(s) carregado(s) de ${rows.length} linhas.`);
-    renderMarkers(allServices);
+    showUploadStatus(true, `${services.length} serviço(s) carregado(s) de ${rows.length} linhas. Acesse o mapa e realize uma busca para visualizá-los.`);
+    renderMarkers(allServices, null, false);
     showToast(`${services.length} serviços importados!`, 'success');
   };
   reader.readAsArrayBuffer(file);
@@ -696,7 +717,7 @@ async function loadServicesFromDB() {
   const { collection, getDocs } = window._fbFns;
   const snap = await getDocs(collection(window._db, 'services'));
   allServices = snap.docs.map(d => d.data());
-  renderMarkers(allServices);
+  renderMarkers(allServices, null, false); // don't show on load, wait for search
 }
 
 function showUploadStatus(ok, msg) {
