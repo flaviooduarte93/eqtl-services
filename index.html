@@ -579,7 +579,14 @@ window.addEventListener('firebase-ready', () => {
   initApp();
 });
 
+// Fallback: if firebase-ready already fired before this listener was added
+if (window._auth && window._db) {
+  firebaseReady = true;
+  initApp();
+}
+
 function initApp() {
+  if (!window._auth || !window._fbFns) return;
   const { onAuthStateChanged } = window._fbFns;
   const auth = window._auth;
 
@@ -593,6 +600,15 @@ function initApp() {
     }
   });
 }
+
+// Safety timeout — if still loading after 8s, show login anyway
+setTimeout(() => {
+  const loading = document.getElementById('loadingScreen');
+  if (loading && loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
+}, 8000);
 
 async function loadUserProfile(user) {
   const { doc, getDoc } = window._fbFns;
