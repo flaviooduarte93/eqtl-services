@@ -938,25 +938,26 @@ async function saveServicesToDB(services) {
 
   showUploadLoading('Limpando base anterior...', 'Removendo registros antigos');
 
-  // Delete ALL existing in batches of 500 (Firestore limit)
-  let snap = await getDocs(collection(db, 'services'));
-  while (snap.docs.length > 0) {
+  // Delete in parallel batches for speed
+  const deleteSnap = await getDocs(collection(db, 'services'));
+  const deleteBatches = [];
+  for (let i = 0; i < deleteSnap.docs.length; i += 400) {
     const batch = writeBatch(db);
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-    snap = await getDocs(collection(db, 'services'));
+    deleteSnap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+    deleteBatches.push(batch.commit());
   }
+  await Promise.all(deleteBatches);
 
   showUploadLoading('Salvando novos registros...', `Importando ${services.length} ocorrencias`);
 
-  // Save new in batches of 500
-  const chunks = [];
-  for (let i = 0; i < services.length; i += 400) chunks.push(services.slice(i, i + 400));
-  for (const chunk of chunks) {
+  // Save in parallel batches
+  const saveBatches = [];
+  for (let i = 0; i < services.length; i += 400) {
     const batch = writeBatch(db);
-    chunk.forEach(s => batch.set(doc(db, 'services', s.id), s));
-    await batch.commit();
+    services.slice(i, i + 400).forEach(s => batch.set(doc(db, 'services', s.id), s));
+    saveBatches.push(batch.commit());
   }
+  await Promise.all(saveBatches);
 
   allServices = services;
   hideUploadLoading();
