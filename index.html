@@ -601,7 +601,7 @@ function initApp() {
   });
 }
 
-// Safety timeout — if still loading after 8s, show login anyway
+// Safety timeout - if still loading after 8s, show login anyway
 setTimeout(() => {
   const loading = document.getElementById('loadingScreen');
   if (loading && loading.style.display !== 'none') {
@@ -742,9 +742,9 @@ function renderMarkers(services, proximos = null, showAll = false) {
     const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
     const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lng}&navigate=yes`;
-    const motivo = s.motivo || '—';
-    const medidor = s.medidor || '—';
-    const cliente = s.cliente || '—';
+    const motivo = s.motivo || '-';
+    const medidor = s.medidor || '-';
+    const cliente = s.cliente || '-';
     m.bindPopup(`
       <div class="popup-content">
         <div class="popup-title">🔧 Ocorrência ${s.ocorrencia}</div>
@@ -759,7 +759,7 @@ function renderMarkers(services, proximos = null, showAll = false) {
           <a href="${googleMapsUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#1a2a8f;color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🗺️ Google Maps</a>
           <a href="${wazeUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#33ccff;color:#0d1230;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🚗 Waze</a>
         </div>
-        <button class="btn-concluir" onclick="concluirServico('${s.id}', this)">✓ Marcar como concluído</button>
+        <button class="btn-concluir" onclick="concluirServico('${s.id}', this)">Marcar como concluido</button>
       </div>`);
     markers.push(m);
   });
@@ -796,7 +796,7 @@ async function concluirServico(id, btn) {
     showToast('Serviço concluído e removido!', 'success');
   } catch(e) {
     showToast('Erro ao remover serviço.', 'error');
-    btn.disabled = false; btn.textContent = '✓ Marcar como concluído';
+    btn.disabled = false; btn.textContent = 'Marcar como concluído';
   }
 }
 
@@ -879,7 +879,7 @@ function handleFile(file) {
         services.push({
           id: `svc_${Date.now()}_${idx}`,
           ocorrencia: ocorrencia || `Linha ${idx+1}`,
-          motivo: motivo || 'NÃO INFORMADO',
+          motivo: motivo || 'NAO INFORMADO',
           medidor: medidor || '',
           cliente: cliente || '',
           lat, lng
@@ -918,7 +918,7 @@ async function loadServicesFromDB() {
 
 function showUploadStatus(ok, msg) {
   const el = document.getElementById('uploadStatus');
-  document.getElementById('statusIcon').textContent = ok ? '✅' : '❌';
+  document.getElementById('statusIcon').textContent = ok ? '[OK]' : '[X]';
   document.getElementById('statusTitle').textContent = ok ? 'Arquivo carregado com sucesso!' : 'Erro ao carregar arquivo';
   document.getElementById('statusDesc').textContent = msg;
   el.classList.add('show');
@@ -943,8 +943,7 @@ function setupPasteListener() {
     if (document.getElementById('methodManual').style.display === 'none') return;
     const text = e.clipboardData.getData('text');
     if (!text) return;
-    const rows = text.trim().split('
-').map(r => r.split('	'));
+    const rows = text.trim().split("\n").map(r => r.split("\t"));
     // Check if first row is header
     const firstRow = rows[0].map(c => c.toLowerCase().trim());
     const isHeader = firstRow.some(c => c.includes('ocorr') || c.includes('motivo') || c.includes('lat'));
@@ -978,7 +977,7 @@ function addManualRow(oc='', mot='', med='', cli='', lat='', lng='') {
     <td><input type="text" placeholder="Nome do cliente" value="${cli}"></td>
     <td><input type="text" placeholder="-16.6663" value="${lat}"></td>
     <td><input type="text" placeholder="-49.1775" value="${lng}"></td>
-    <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    <td><button class="btn-del-row" onclick="this.closest('tr').remove()">x</button></td>`;
   tbody.appendChild(tr);
 }
 
@@ -1001,7 +1000,7 @@ async function saveManualData() {
     const lat = parseFloat(inputs[4].value.replace(',','.').trim());
     const lng = parseFloat(inputs[5].value.replace(',','.').trim());
     if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-      services.push({ id: `svc_${Date.now()}_${idx}`, ocorrencia: oc || `Linha ${idx+1}`, motivo: mot || 'NÃO INFORMADO', medidor: med, cliente: cli, lat, lng });
+      services.push({ id: `svc_${Date.now()}_${idx}`, ocorrencia: oc || `Linha ${idx+1}`, motivo: mot || 'NAO INFORMADO', medidor: med, cliente: cli, lat, lng });
     } else skipped++;
   });
   if (services.length === 0) { showToast('Nenhum dado válido encontrado.', 'error'); return; }
