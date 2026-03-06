@@ -568,6 +568,7 @@ let map = null;
 let markers = [];
 let radiusCircle = null;
 let firebaseReady = false;
+let lastSearchDone = false;
 
 // Color palette for service types
 const MOTIVE_COLORS = [
@@ -777,6 +778,7 @@ function renderMarkers(services, proximos = null, showAll = false) {
     const color = getMotiveColor(s.motivo);
     const icon = coloredIcon(color, isProx);
     const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+    m._serviceId = s.id;
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
     const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lng}&navigate=yes`;
     const motivo = s.motivo || '-';
@@ -865,6 +867,7 @@ function buscarProximos() {
 }
 
 function resetarBusca() {
+  lastSearchDone = false;
   if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
   renderMarkers(allServices, null, true);
 }
