@@ -265,6 +265,18 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .empty-state h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
 .empty-state p { font-size: 13px; }
 
+/* LEGEND */
+.map-legend {
+  background: white; border-radius: 12px; padding: 14px 18px;
+  margin-bottom: 12px; box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: none;
+}
+.map-legend.show { display: block; }
+.legend-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.legend-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text); background: var(--surface2); border-radius: 20px; padding: 4px 10px; border: 1px solid var(--border); }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
 /* ANIMATIONS */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 640px) {
@@ -392,6 +404,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         </div>
       </div>
     </div>
+    <div class="map-legend" id="mapLegend">
+      <div class="legend-title">📌 Legenda — Tipos de Serviço</div>
+      <div class="legend-grid" id="legendGrid"></div>
+    </div>
     <div id="map"></div>
   </div>
 </div>
@@ -407,6 +423,47 @@ let map = null;
 let markers = [];
 let radiusCircle = null;
 let firebaseReady = false;
+
+// Color palette for service types
+const MOTIVE_COLORS = [
+  '#1a2a8f','#e87722','#e53e3e','#00a651','#9b59b6',
+  '#16a085','#d35400','#2980b9','#c0392b','#27ae60',
+  '#8e44ad','#f39c12','#1abc9c','#e74c3c','#3498db'
+];
+const motiveColorMap = {};
+let motiveColorIndex = 0;
+
+function getMotiveColor(motive) {
+  const key = (motive || 'OUTROS').toUpperCase().trim();
+  if (!motiveColorMap[key]) {
+    motiveColorMap[key] = MOTIVE_COLORS[motiveColorIndex % MOTIVE_COLORS.length];
+    motiveColorIndex++;
+  }
+  return motiveColorMap[key];
+}
+
+function coloredIcon(color, isProx = false) {
+  const size = isProx ? 20 : 16;
+  const border = isProx ? 3 : 2;
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border:${border}px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2]
+  });
+}
+
+function updateLegend() {
+  const legend = document.getElementById('mapLegend');
+  const grid = document.getElementById('legendGrid');
+  const keys = Object.keys(motiveColorMap);
+  if (keys.length === 0) { legend.classList.remove('show'); return; }
+  legend.classList.add('show');
+  grid.innerHTML = keys.map(k => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${motiveColorMap[k]}"></div>
+      <span>${k}</span>
+    </div>`).join('');
+}
 
 // Wait for firebase
 window.addEventListener('firebase-ready', () => {
@@ -546,33 +603,34 @@ function initMap() {
   }).addTo(map);
 }
 
-function greenIcon() {
-  return L.divIcon({ className: '', html: '<div style="width:16px;height:16px;background:#1a2a8f;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>', iconSize:[16,16], iconAnchor:[8,8] });
-}
-function orangeIcon() {
-  return L.divIcon({ className: '', html: '<div style="width:20px;height:20px;background:#f6ad55;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', iconSize:[20,20], iconAnchor:[10,10] });
-}
+
 
 function renderMarkers(services, proximos = null, showAll = false) {
   markers.forEach(m => map.removeLayer(m));
   markers = [];
 
-  // Only show markers if search was done (proximos set) or showAll explicitly
   const toShow = (proximos !== null || showAll) ? services : [];
 
   toShow.forEach(s => {
     const isProx = proximos ? proximos.has(s.id) : false;
-    const icon = isProx ? orangeIcon() : greenIcon();
+    const color = getMotiveColor(s.motivo);
+    const icon = coloredIcon(color, isProx);
     const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
     const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lng}&navigate=yes`;
+    const motivo = s.motivo || '—';
+    const medidor = s.medidor || '—';
+    const cliente = s.cliente || '—';
     m.bindPopup(`
       <div class="popup-content">
         <div class="popup-title">🔧 Ocorrência ${s.ocorrencia}</div>
         <div class="popup-row"><span class="popup-key">Nº Ocorrência</span><span class="popup-val">${s.ocorrencia}</span></div>
+        <div class="popup-row"><span class="popup-key">Motivo</span><span class="popup-val" style="color:${color};font-weight:600">${motivo}</span></div>
+        <div class="popup-row"><span class="popup-key">Cliente</span><span class="popup-val">${cliente}</span></div>
+        <div class="popup-row"><span class="popup-key">Medidor</span><span class="popup-val">${medidor}</span></div>
         <div class="popup-row"><span class="popup-key">Latitude</span><span class="popup-val">${s.lat}</span></div>
         <div class="popup-row"><span class="popup-key">Longitude</span><span class="popup-val">${s.lng}</span></div>
-        ${isProx ? '<div style="font-size:11px;color:#c05621;margin-top:6px;">📍 Dentro do raio de 2,5km</div>' : ''}
+        ${isProx ? '<div style="font-size:11px;color:#e87722;font-weight:600;margin-top:6px;">📍 Dentro do raio de 2,5km</div>' : ''}
         <div style="display:flex;gap:6px;margin-top:12px;">
           <a href="${googleMapsUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#1a2a8f;color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🗺️ Google Maps</a>
           <a href="${wazeUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#33ccff;color:#0d1230;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🚗 Waze</a>
@@ -582,7 +640,8 @@ function renderMarkers(services, proximos = null, showAll = false) {
     markers.push(m);
   });
 
-  // Stat: if no search done, show total base count; if search done, show proximos count
+  updateLegend();
+
   if (proximos !== null) {
     updateStat(proximos.size, true);
   } else if (showAll) {
@@ -591,7 +650,7 @@ function renderMarkers(services, proximos = null, showAll = false) {
     updateStat(allServices.length, false);
   }
 
-  if (toShow.length > 0 && proximos !== null) {
+  if (toShow.length > 0) {
     const group = L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.2));
   }
@@ -683,11 +742,21 @@ function handleFile(file) {
         }
         return null;
       };
-      const ocorrencia = getVal(['ocorrencia','ocorrência','numero','número','num','nro','id']);
+      const ocorrencia = getVal(['ocorrencia','ocorrência','numero','número','num','nro','id','número da ocorrência','numero da ocorrencia']);
+      const motivo = getVal(['motivo','tipo','servico','serviço','descrição','descricao']);
+      const medidor = getVal(['medidor','med']);
+      const cliente = getVal(['cliente','nome','consumidor']);
       const lat = parseFloat(getVal(['lat','latitude']));
       const lng = parseFloat(getVal(['lon','lng','long','longitude']));
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        services.push({ id: `svc_${Date.now()}_${idx}`, ocorrencia: ocorrencia || `Linha ${idx+1}`, lat, lng });
+        services.push({
+          id: `svc_${Date.now()}_${idx}`,
+          ocorrencia: ocorrencia || `Linha ${idx+1}`,
+          motivo: motivo || 'NÃO INFORMADO',
+          medidor: medidor || '',
+          cliente: cliente || '',
+          lat, lng
+        });
       }
     });
     await saveServicesToDB(services);
