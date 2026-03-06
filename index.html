@@ -825,17 +825,25 @@ function updateStat(count, filtered) {
 }
 
 async function concluirServico(id, btn) {
-  if (!confirm('Marcar esta ocorrência como concluída e removê-la da base?')) return;
+  if (!confirm('Confirma a conclusao deste servico?')) return;
   btn.disabled = true; btn.textContent = 'Removendo...';
   try {
     const { doc, deleteDoc } = window._fbFns;
     await deleteDoc(doc(window._db, 'services', id));
     allServices = allServices.filter(s => s.id !== id);
-    renderMarkers(allServices);
-    showToast('Serviço concluído e removido!', 'success');
+
+    // Find and remove only this specific marker
+    const idx = markers.findIndex(m => m._serviceId === id);
+    if (idx !== -1) {
+      map.removeLayer(markers[idx]);
+      markers.splice(idx, 1);
+    }
+
+    updateStat(markers.length, lastSearchDone);
+    showToast('Servico concluido e removido!', 'success');
   } catch(e) {
-    showToast('Erro ao remover serviço.', 'error');
-    btn.disabled = false; btn.textContent = 'Marcar como concluído';
+    showToast('Erro ao remover servico.', 'error');
+    btn.disabled = false; btn.textContent = 'Marcar como concluido';
   }
 }
 
