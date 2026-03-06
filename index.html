@@ -746,9 +746,12 @@ function handleFile(file) {
       const motivo = getVal(['motivo','tipo','servico','serviço','descrição','descricao']);
       const medidor = getVal(['medidor','med']);
       const cliente = getVal(['cliente','nome','consumidor']);
-      const lat = parseFloat(getVal(['lat','latitude']));
-      const lng = parseFloat(getVal(['lon','lng','long','longitude']));
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      // Handle lat/lng as string or number
+      const rawLat = getVal(['lat','latitude']);
+      const rawLng = getVal(['lon','lng','long','longitude']);
+      const lat = parseFloat(String(rawLat).replace(',', '.').trim());
+      const lng = parseFloat(String(rawLng).replace(',', '.').trim());
+      if (rawLat !== null && rawLng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         services.push({
           id: `svc_${Date.now()}_${idx}`,
           ocorrencia: ocorrencia || `Linha ${idx+1}`,
