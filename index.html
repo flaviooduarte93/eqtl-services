@@ -265,6 +265,65 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .empty-state h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
 .empty-state p { font-size: 13px; }
 
+/* METHOD TABS */
+.method-tabs { display: flex; gap: 0; margin-bottom: 20px; background: var(--surface2); border-radius: 12px; padding: 4px; border: 1px solid var(--border); width: fit-content; }
+.method-tab {
+  padding: 10px 22px; border: none; background: transparent; border-radius: 9px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; color: var(--muted); transition: all 0.2s;
+}
+.method-tab.active { background: white; color: var(--text); box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+
+/* MANUAL INPUT */
+.manual-info {
+  display: flex; gap: 12px; background: rgba(26,42,143,0.05);
+  border: 1px solid rgba(26,42,143,0.15); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 16px; font-size: 13px; line-height: 1.6;
+}
+.manual-info-icon { font-size: 20px; flex-shrink: 0; }
+.manual-table-wrap {
+  background: white; border-radius: 12px; border: 1px solid var(--border);
+  overflow: auto; max-height: 420px; box-shadow: var(--shadow);
+}
+.manual-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.manual-table thead th {
+  background: var(--surface2); padding: 11px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); border-bottom: 1px solid var(--border); position: sticky; top: 0;
+}
+.manual-table tbody td { padding: 0; border-bottom: 1px solid var(--border); }
+.manual-table tbody tr:last-child td { border-bottom: none; }
+.manual-table input {
+  width: 100%; padding: 9px 12px; border: none; background: transparent;
+  font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text);
+  outline: none; min-width: 100px;
+}
+.manual-table input:focus { background: rgba(26,42,143,0.04); }
+.btn-del-row {
+  padding: 6px 10px; background: transparent; border: none;
+  color: var(--muted); cursor: pointer; font-size: 14px; transition: color 0.2s;
+}
+.btn-del-row:hover { color: var(--danger); }
+.btn-add-row {
+  padding: 9px 16px; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--text); cursor: pointer; transition: all 0.2s;
+}
+.btn-add-row:hover { border-color: var(--accent); color: var(--accent); }
+.btn-clear-rows {
+  padding: 9px 16px; background: transparent; border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.btn-clear-rows:hover { border-color: var(--danger); color: var(--danger); }
+.btn-save-manual {
+  padding: 9px 20px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-family: 'Inter', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  margin-left: auto;
+}
+.btn-save-manual:hover { background: var(--accent2); }
+
 /* LEGEND */
 .map-legend {
   background: white; border-radius: 12px; padding: 14px 18px;
@@ -366,25 +425,74 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <!-- UPLOAD TAB -->
   <div class="main-content" id="screenUpload" style="display:none">
     <div class="upload-header">
-      <h1>Anexar Arquivo Excel</h1>
-      <p>Envie o arquivo .xlsx com as ocorrências. Os dados sobrescrevem os anteriores.</p>
+      <h1>Inserir Ocorrências</h1>
+      <p>Escolha como deseja inserir os dados. Os dados novos sobrescrevem os anteriores.</p>
     </div>
-    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
-         ondragover="event.preventDefault();this.classList.add('drag')"
-         ondragleave="this.classList.remove('drag')"
-         ondrop="handleDrop(event)">
-      <div class="upload-icon">📊</div>
-      <h3>Arraste o arquivo aqui</h3>
-      <p>ou clique para selecionar</p>
-      <p style="margin-top:8px;font-size:11px;color:#a0aec0">Apenas arquivos .xlsx</p>
-      <button class="btn-upload" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Selecionar arquivo</button>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+
+    <!-- METHOD TABS -->
+    <div class="method-tabs">
+      <button class="method-tab active" id="mtabExcel" onclick="switchMethod('excel')">📊 Arquivo Excel</button>
+      <button class="method-tab" id="mtabManual" onclick="switchMethod('manual')">📋 Colar Dados</button>
     </div>
+
+    <!-- EXCEL METHOD -->
+    <div id="methodExcel">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleDrop(event)">
+        <div class="upload-icon">📊</div>
+        <h3>Arraste o arquivo aqui</h3>
+        <p>ou clique para selecionar</p>
+        <p style="margin-top:8px;font-size:11px;color:#a0aec0">Apenas arquivos .xlsx</p>
+        <button class="btn-upload" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Selecionar arquivo</button>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+      </div>
+    </div>
+
+    <!-- MANUAL METHOD -->
+    <div id="methodManual" style="display:none">
+      <div class="manual-info">
+        <div class="manual-info-icon">💡</div>
+        <div>
+          <strong>Como usar:</strong> Copie as linhas diretamente do Excel e cole no campo abaixo.<br>
+          <span style="color:var(--muted)">Colunas esperadas (nessa ordem): <strong>Número da Ocorrência · Motivo · Medidor · Cliente · Latitude · Longitude</strong></span>
+        </div>
+      </div>
+      <div class="manual-table-wrap">
+        <table class="manual-table" id="manualTable">
+          <thead>
+            <tr>
+              <th>Nº Ocorrência</th>
+              <th>Motivo</th>
+              <th>Medidor</th>
+              <th>Cliente</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="manualBody">
+            <tr class="empty-paste-row">
+              <td colspan="7" style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">
+                Cole os dados do Excel aqui (Ctrl+V) ou adicione linhas manualmente
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn-add-row" onclick="addManualRow()">+ Adicionar linha</button>
+        <button class="btn-clear-rows" onclick="clearManualRows()">🗑️ Limpar tudo</button>
+        <button class="btn-save-manual" onclick="saveManualData()">✓ Salvar ocorrências</button>
+      </div>
+    </div>
+
     <div class="upload-status" id="uploadStatus">
       <div class="status-row">
         <div class="status-icon" id="statusIcon">✅</div>
         <div class="status-text">
-          <h4 id="statusTitle">Arquivo carregado com sucesso!</h4>
+          <h4 id="statusTitle">Dados carregados com sucesso!</h4>
           <p id="statusDesc"></p>
         </div>
       </div>
@@ -798,6 +906,92 @@ function showUploadStatus(ok, msg) {
   document.getElementById('statusTitle').textContent = ok ? 'Arquivo carregado com sucesso!' : 'Erro ao carregar arquivo';
   document.getElementById('statusDesc').textContent = msg;
   el.classList.add('show');
+}
+
+// METHOD SWITCH
+function switchMethod(m) {
+  document.getElementById('methodExcel').style.display = m === 'excel' ? 'block' : 'none';
+  document.getElementById('methodManual').style.display = m === 'manual' ? 'block' : 'none';
+  document.getElementById('mtabExcel').classList.toggle('active', m === 'excel');
+  document.getElementById('mtabManual').classList.toggle('active', m === 'manual');
+  if (m === 'manual') setupPasteListener();
+}
+
+let pasteListenerAdded = false;
+function setupPasteListener() {
+  if (pasteListenerAdded) return;
+  pasteListenerAdded = true;
+  document.addEventListener('paste', (e) => {
+    const screen = document.getElementById('screenUpload');
+    if (screen.style.display === 'none') return;
+    if (document.getElementById('methodManual').style.display === 'none') return;
+    const text = e.clipboardData.getData('text');
+    if (!text) return;
+    const rows = text.trim().split('
+').map(r => r.split('	'));
+    // Check if first row is header
+    const firstRow = rows[0].map(c => c.toLowerCase().trim());
+    const isHeader = firstRow.some(c => c.includes('ocorr') || c.includes('motivo') || c.includes('lat'));
+    const dataRows = isHeader ? rows.slice(1) : rows;
+    clearManualRows();
+    dataRows.forEach(cols => {
+      if (cols.length < 2) return;
+      addManualRow(
+        (cols[0]||'').trim(),
+        (cols[1]||'').trim(),
+        (cols[2]||'').trim(),
+        (cols[3]||'').trim(),
+        (cols[4]||'').trim(),
+        (cols[5]||'').trim()
+      );
+    });
+    showToast(`${dataRows.length} linha(s) coladas com sucesso!`, 'success');
+  });
+}
+
+function addManualRow(oc='', mot='', med='', cli='', lat='', lng='') {
+  const tbody = document.getElementById('manualBody');
+  // Remove empty state row
+  const emptyRow = tbody.querySelector('.empty-paste-row');
+  if (emptyRow) emptyRow.remove();
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" placeholder="2026-1-001" value="${oc}"></td>
+    <td><input type="text" placeholder="REVITALIZAR RAMAL" value="${mot}"></td>
+    <td><input type="text" placeholder="12345678-9" value="${med}"></td>
+    <td><input type="text" placeholder="Nome do cliente" value="${cli}"></td>
+    <td><input type="text" placeholder="-16.6663" value="${lat}"></td>
+    <td><input type="text" placeholder="-49.1775" value="${lng}"></td>
+    <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function clearManualRows() {
+  const tbody = document.getElementById('manualBody');
+  tbody.innerHTML = `<tr class="empty-paste-row"><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Cole os dados do Excel aqui (Ctrl+V) ou adicione linhas manualmente</td></tr>`;
+}
+
+async function saveManualData() {
+  const rows = document.querySelectorAll('#manualBody tr:not(.empty-paste-row)');
+  if (rows.length === 0) { showToast('Nenhuma linha para salvar.', 'error'); return; }
+  const services = [];
+  let skipped = 0;
+  rows.forEach((tr, idx) => {
+    const inputs = tr.querySelectorAll('input');
+    const oc = inputs[0].value.trim();
+    const mot = inputs[1].value.trim();
+    const med = inputs[2].value.trim();
+    const cli = inputs[3].value.trim();
+    const lat = parseFloat(inputs[4].value.replace(',','.').trim());
+    const lng = parseFloat(inputs[5].value.replace(',','.').trim());
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      services.push({ id: `svc_${Date.now()}_${idx}`, ocorrencia: oc || `Linha ${idx+1}`, motivo: mot || 'NÃO INFORMADO', medidor: med, cliente: cli, lat, lng });
+    } else skipped++;
+  });
+  if (services.length === 0) { showToast('Nenhum dado válido encontrado.', 'error'); return; }
+  await saveServicesToDB(services);
+  showUploadStatus(true, `${services.length} ocorrência(s) salvas.${skipped > 0 ? ` ${skipped} linha(s) ignoradas por falta de coordenadas.` : ''}`);
+  showToast(`${services.length} ocorrências salvas!`, 'success');
 }
 
 // UTILS
