@@ -265,6 +265,33 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .empty-state h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
 .empty-state p { font-size: 13px; }
 
+/* UPLOAD LOADING OVERLAY */
+#uploadLoading {
+  display: none; position: fixed; inset: 0; z-index: 9998;
+  background: rgba(13,18,48,0.7); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+}
+#uploadLoading.show { display: flex; }
+.upload-loading-box {
+  background: white; border-radius: 20px; padding: 40px 48px;
+  text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,0.3); min-width: 280px;
+}
+.upload-loading-box .ul-icon { font-size: 40px; margin-bottom: 16px; }
+.upload-loading-box h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+.upload-loading-box p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.upload-progress-bar { height: 6px; background: var(--border); border-radius: 100px; overflow: hidden; }
+.upload-progress-fill {
+  height: 100%; border-radius: 100px;
+  background: linear-gradient(90deg, #1a2a8f, #e87722);
+  animation: progressAnim 2s ease-in-out infinite;
+  width: 40%;
+}
+@keyframes progressAnim {
+  0% { width: 10%; margin-left: 0; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 10%; margin-left: 90%; }
+}
+
 /* METHOD TABS */
 .method-tabs { display: flex; gap: 0; margin-bottom: 20px; background: var(--surface2); border-radius: 12px; padding: 4px; border: 1px solid var(--border); width: fit-content; }
 .method-tab {
@@ -517,6 +544,16 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       <div class="legend-grid" id="legendGrid"></div>
     </div>
     <div id="map"></div>
+  </div>
+</div>
+
+<!-- UPLOAD LOADING -->
+<div id="uploadLoading">
+  <div class="upload-loading-box">
+    <div class="ul-icon">📊</div>
+    <h3 id="uploadLoadingTitle">Carregando arquivo...</h3>
+    <p id="uploadLoadingDesc">Aguarde enquanto processamos os dados</p>
+    <div class="upload-progress-bar"><div class="upload-progress-fill"></div></div>
   </div>
 </div>
 
@@ -851,6 +888,7 @@ function handleDrop(e) {
 function handleFile(file) {
   if (!file) return;
   if (!file.name.match(/\.(xlsx|xls)$/i)) { showToast('Apenas arquivos .xlsx são aceitos.', 'error'); return; }
+  showUploadLoading('Lendo arquivo Excel...', 'Processando planilha, aguarde...');
   const reader = new FileReader();
   reader.onload = async e => {
     const wb = XLSX.read(e.target.result, { type: 'array' });
@@ -895,24 +933,50 @@ function handleFile(file) {
 }
 
 async function saveServicesToDB(services) {
-  const { collection, getDocs, writeBatch, doc, setDoc } = window._fbFns;
+  const { collection, getDocs, writeBatch, doc } = window._fbFns;
   const db = window._db;
-  // Clear existing
-  const snap = await getDocs(collection(db, 'services'));
-  const batch = writeBatch(db);
-  snap.docs.forEach(d => batch.delete(d.ref));
-  await batch.commit();
-  // Save new
-  const batch2 = writeBatch(db);
-  services.forEach(s => batch2.set(doc(db, 'services', s.id), s));
-  await batch2.commit();
+
+  showUploadLoading('Limpando base anterior...', 'Removendo registros antigos');
+
+  // Delete ALL existing in batches of 500 (Firestore limit)
+  let snap = await getDocs(collection(db, 'services'));
+  while (snap.docs.length > 0) {
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    snap = await getDocs(collection(db, 'services'));
+  }
+
+  showUploadLoading('Salvando novos registros...', `Importando ${services.length} ocorrencias`);
+
+  // Save new in batches of 500
+  const chunks = [];
+  for (let i = 0; i < services.length; i += 400) chunks.push(services.slice(i, i + 400));
+  for (const chunk of chunks) {
+    const batch = writeBatch(db);
+    chunk.forEach(s => batch.set(doc(db, 'services', s.id), s));
+    await batch.commit();
+  }
+
   allServices = services;
+  hideUploadLoading();
+}
+
+function showUploadLoading(title, desc) {
+  document.getElementById('uploadLoadingTitle').textContent = title;
+  document.getElementById('uploadLoadingDesc').textContent = desc;
+  document.getElementById('uploadLoading').classList.add('show');
+}
+
+function hideUploadLoading() {
+  document.getElementById('uploadLoading').classList.remove('show');
 }
 
 async function loadServicesFromDB() {
   const { collection, getDocs } = window._fbFns;
   const snap = await getDocs(collection(window._db, 'services'));
   allServices = snap.docs.map(d => d.data());
+  updateStat(allServices.length, false);
   renderMarkers(allServices, null, false); // don't show on load, wait for search
 }
 
