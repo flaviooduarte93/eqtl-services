@@ -34,7 +34,7 @@
 
   window._auth = auth;
   window._db = db;
-  window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch };
+  window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch };
 
   window.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -623,10 +623,13 @@ if (window._auth && window._db) {
   initApp();
 }
 
-function initApp() {
+async function initApp() {
   if (!window._auth || !window._fbFns) return;
-  const { onAuthStateChanged } = window._fbFns;
+  const { onAuthStateChanged, setPersistence, browserSessionPersistence } = window._fbFns;
   const auth = window._auth;
+
+  // Use session persistence - clears on tab/browser close
+  try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
 
   onAuthStateChanged(auth, async (user) => {
     document.getElementById('loadingScreen').style.display = 'none';
