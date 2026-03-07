@@ -665,6 +665,11 @@ async function loadUserProfile(user) {
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('appShell').style.display = 'none';
+  // Always reset login form state
+  const btn = document.getElementById('loginBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+  const err = document.getElementById('loginError');
+  if (err) err.textContent = '';
 }
 
 function showApp() {
@@ -719,6 +724,7 @@ async function doLogin() {
     const { signInWithEmailAndPassword } = window._fbFns;
     const cred = await signInWithEmailAndPassword(window._auth, email, pass);
     await loadUserProfile(cred.user);
+    btn.disabled = false; btn.textContent = 'Entrar';
     showApp();
   } catch(e) {
     showError(err, 'E-mail ou senha incorretos.');
