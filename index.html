@@ -713,15 +713,18 @@ function switchTab(tab) {
   document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
 }
 
-function goTab(tab) {
+async function goTab(tab) {
   if (tab === 'upload' && currentPerfil !== 'equatorial') {
-    showToast('Acesso restrito a funcionários da Equatorial', 'error'); return;
+    showToast('Acesso restrito a funcionarios da Equatorial', 'error'); return;
   }
   document.getElementById('screenUpload').style.display = tab === 'upload' ? 'block' : 'none';
   document.getElementById('screenMap').style.display = tab === 'map' ? 'flex' : 'none';
   document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
   document.getElementById('tabMap').classList.toggle('active', tab === 'map');
-  if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
+  if (tab === 'map') {
+    setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+    await loadServicesFromDB();
+  }
 }
 
 function toggleSenha(fieldId, btn) {
