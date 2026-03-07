@@ -721,8 +721,17 @@ async function goTab(tab) {
   document.getElementById('screenMap').style.display = tab === 'map' ? 'flex' : 'none';
   document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
   document.getElementById('tabMap').classList.toggle('active', tab === 'map');
+
   if (tab === 'map') {
     setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+
+    // Clear all markers and reset search state
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+    lastSearchDone = false;
+
+    // Reload fresh data from DB
     await loadServicesFromDB();
   }
 }
