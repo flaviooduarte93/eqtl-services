@@ -12,7 +12,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // ======================================================
   // COLE SUAS CREDENCIAIS FIREBASE AQUI
@@ -34,7 +34,7 @@
 
   window._auth = auth;
   window._db = db;
-  window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch };
+  window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, deleteDoc, writeBatch, addDoc, query, orderBy, limit };
 
   window.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -356,6 +356,68 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 }
 .btn-save-manual:hover { background: var(--accent2); }
 
+/* HISTORY SCREEN */
+.history-header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.history-header h1 { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+.history-header p { color: var(--muted); font-size: 14px; }
+.btn-export-history {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; background: #00a651; color: white;
+  border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; white-space: nowrap;
+}
+.btn-export-history:hover { background: #007a3d; transform: translateY(-1px); }
+.history-stats {
+  display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.hist-stat {
+  background: white; border-radius: 12px; padding: 14px 20px;
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 160px;
+}
+.hist-stat-icon { font-size: 24px; }
+.hist-stat-num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; color: var(--accent); }
+.hist-stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.history-filters {
+  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+}
+.history-search {
+  flex: 1; min-width: 200px; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--text); outline: none; background: white; transition: border-color 0.2s;
+}
+.history-search:focus { border-color: var(--accent); }
+.history-table-wrap {
+  background: white; border-radius: 12px; border: 1px solid var(--border);
+  overflow: auto; box-shadow: var(--shadow);
+}
+.history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.history-table thead th {
+  background: var(--surface2); padding: 11px 14px; text-align: left;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; white-space: nowrap;
+}
+.history-table tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.history-table tbody tr:last-child td { border-bottom: none; }
+.history-table tbody tr:hover { background: var(--surface2); }
+.hist-badge-motivo {
+  display: inline-block; padding: 3px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.hist-concluded-by { font-size: 11px; color: var(--muted); }
+.hist-concluded-by strong { color: var(--text); }
+.history-empty { text-align: center; padding: 60px 24px; color: var(--muted); }
+.history-empty .icon { font-size: 48px; margin-bottom: 12px; }
+.history-empty h3 { font-family: 'Syne', sans-serif; font-size: 17px; color: var(--text); margin-bottom: 6px; }
+.history-empty p { font-size: 13px; }
+.btn-clear-history {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 16px; background: transparent; color: var(--danger);
+  border: 1.5px solid var(--danger); border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; white-space: nowrap;
+}
+.btn-clear-history:hover { background: var(--danger); color: white; }
+
 /* LEGEND */
 .map-legend {
   background: white; border-radius: 12px; padding: 14px 18px;
@@ -457,6 +519,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <div class="nav-tabs">
     <button class="nav-tab" id="tabUpload" onclick="goTab('upload')">📁 Anexar Arquivo</button>
     <button class="nav-tab active" id="tabMap" onclick="goTab('map')">🗺️ Mapa</button>
+    <button class="nav-tab locked" id="tabHistory" onclick="goTab('history')">📋 Histórico</button>
   </div>
 
   <!-- UPLOAD TAB -->
@@ -541,7 +604,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     <div class="map-toolbar">
       <button class="btn-search" id="btnBuscar" onclick="buscarProximos()">📍 Buscar serviços próximos</button>
       <button class="btn-reset" onclick="resetarBusca()">Mostrar todos</button>
-      <div class="radius-info"><div class="dot-green"></div> Normal &nbsp; <div class="dot-orange"></div> Próximo (≤2,5km)</div>
       <div class="stat-card">
         <div>
           <div class="stat-num" id="statNum">0</div>
@@ -555,9 +617,76 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     </div>
     <div id="map"></div>
   </div>
-</div>
 
-<!-- UPLOAD LOADING -->
+  <!-- HISTORY TAB -->
+  <div class="main-content" id="screenHistory" style="display:none">
+    <div class="history-header">
+      <div>
+        <h1>Histórico de Serviços</h1>
+        <p>Registro de todas as ocorrências concluídas pelas equipes de campo.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-export-history" onclick="exportHistoryToExcel()">📥 Exportar Excel</button>
+        <button class="btn-clear-history" onclick="clearHistory()">🗑️ Limpar histórico</button>
+      </div>
+    </div>
+
+    <div class="history-stats">
+      <div class="hist-stat">
+        <div class="hist-stat-icon">✅</div>
+        <div>
+          <div class="hist-stat-num" id="histStatTotal">0</div>
+          <div class="hist-stat-label">serviços concluídos</div>
+        </div>
+      </div>
+      <div class="hist-stat">
+        <div class="hist-stat-icon">👤</div>
+        <div>
+          <div class="hist-stat-num" id="histStatToday">0</div>
+          <div class="hist-stat-label">concluídos hoje</div>
+        </div>
+      </div>
+      <div class="hist-stat">
+        <div class="hist-stat-icon">🗓️</div>
+        <div>
+          <div class="hist-stat-num" id="histStatWeek">0</div>
+          <div class="hist-stat-label">esta semana</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-filters">
+      <input type="text" class="history-search" id="historySearch" placeholder="🔍  Buscar por ocorrência, cliente, motivo ou usuário..." oninput="filterHistory()">
+    </div>
+
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Nº Ocorrência</th>
+            <th>Motivo</th>
+            <th>Cliente</th>
+            <th>Medidor</th>
+            <th>Concluído por</th>
+            <th>Data / Hora</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr>
+            <td colspan="6">
+              <div class="history-empty">
+                <div class="icon">📋</div>
+                <h3>Nenhum serviço concluído ainda</h3>
+                <p>Os serviços marcados como concluídos aparecerão aqui.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- fim #appShell -->
+
 <div id="uploadLoading">
   <div class="upload-loading-box">
     <div class="ul-icon">📊</div>
@@ -598,19 +727,18 @@ function getMotiveColor(motive) {
   return motiveColorMap[key];
 }
 
-function coloredIcon(color, isProx = false) {
-  const size = isProx ? 20 : 16;
-  const border = isProx ? 3 : 2;
+function coloredIcon(color) {
   return L.divIcon({
     className: '',
-    html: `<div style="width:${size}px;height:${size}px;background:${color};border:${border}px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
-    iconSize: [size, size], iconAnchor: [size/2, size/2]
+    html: `<div style="width:16px;height:16px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
   });
 }
 
-function updateLegend() {
+function updateLegend(show = true) {
   const legend = document.getElementById('mapLegend');
   const grid = document.getElementById('legendGrid');
+  if (!show) { legend.classList.remove('show'); return; }
   const keys = Object.keys(motiveColorMap);
   if (keys.length === 0) { legend.classList.remove('show'); return; }
   legend.classList.add('show');
@@ -646,7 +774,7 @@ async function initApp() {
     document.getElementById('loadingScreen').style.display = 'none';
     if (user) {
       await loadUserProfile(user);
-      showApp();
+      await showApp();
     } else {
       showLogin();
     }
@@ -683,7 +811,7 @@ function showLogin() {
   if (err) err.textContent = '';
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appShell').style.display = 'flex';
 
@@ -697,14 +825,19 @@ function showApp() {
 
   // Controle de acesso
   const tabUpload = document.getElementById('tabUpload');
+  const tabHistory = document.getElementById('tabHistory');
   if (currentPerfil !== 'equatorial') {
     tabUpload.classList.add('locked');
     tabUpload.title = 'Acesso restrito a funcionários da Equatorial';
+    tabHistory.classList.add('locked');
+    tabHistory.title = 'Acesso restrito a funcionários da Equatorial';
+  } else {
+    tabHistory.classList.remove('locked');
   }
 
-  goTab('map');
+  await goTab('map');
   initMap();
-  loadServicesFromDB();
+  await loadServicesFromDB();
 }
 
 function switchTab(tab) {
@@ -714,25 +847,31 @@ function switchTab(tab) {
 }
 
 async function goTab(tab) {
-  if (tab === 'upload' && currentPerfil !== 'equatorial') {
+  if ((tab === 'upload' || tab === 'history') && currentPerfil !== 'equatorial') {
     showToast('Acesso restrito a funcionarios da Equatorial', 'error'); return;
   }
   document.getElementById('screenUpload').style.display = tab === 'upload' ? 'block' : 'none';
   document.getElementById('screenMap').style.display = tab === 'map' ? 'flex' : 'none';
+  document.getElementById('screenHistory').style.display = tab === 'history' ? 'block' : 'none';
   document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
   document.getElementById('tabMap').classList.toggle('active', tab === 'map');
+  document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
 
-  if (tab === 'map') {
-    setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+  if (tab === 'map' && map) {
+    setTimeout(() => { map.invalidateSize(); }, 100);
 
-    // Clear all markers and reset search state
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
-    if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
-    lastSearchDone = false;
+    // Clear markers and reset search state only if navigating back (not on initial load)
+    if (lastSearchDone !== undefined && markers.length > 0) {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+      if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+      lastSearchDone = false;
+      await loadServicesFromDB();
+    }
+  }
 
-    // Reload fresh data from DB
-    await loadServicesFromDB();
+  if (tab === 'history') {
+    await loadHistory();
   }
 }
 
@@ -765,7 +904,7 @@ async function doLogin() {
     const cred = await signInWithEmailAndPassword(window._auth, email, pass);
     await loadUserProfile(cred.user);
     btn.disabled = false; btn.textContent = 'Entrar';
-    showApp();
+    await showApp();
   } catch(e) {
     console.error('Login error full:', e);
     const code = e.code || '';
@@ -798,7 +937,7 @@ async function doRegister() {
     await setDoc(doc(window._db, 'users', cred.user.uid), { name, email, perfil });
     currentUser = { uid: cred.user.uid, email, name, perfil };
     currentPerfil = perfil;
-    showApp();
+    await showApp();
     showToast('Conta criada com sucesso!', 'success');
   } catch(e) {
     let msg = 'Erro ao criar conta.';
@@ -832,10 +971,15 @@ function renderMarkers(services, proximos = null, showAll = false) {
 
   const toShow = (proximos !== null || showAll) ? services : [];
 
+  // Rebuild color map only for visible services
+  Object.keys(motiveColorMap).forEach(k => delete motiveColorMap[k]);
+  motiveColorIndex = 0;
+  toShow.forEach(s => getMotiveColor(s.motivo));
+
   toShow.forEach(s => {
     const isProx = proximos ? proximos.has(s.id) : false;
     const color = getMotiveColor(s.motivo);
-    const icon = coloredIcon(color, isProx);
+    const icon = coloredIcon(color);
     const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
     m._serviceId = s.id;
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
@@ -852,7 +996,7 @@ function renderMarkers(services, proximos = null, showAll = false) {
         <div class="popup-row"><span class="popup-key">Medidor</span><span class="popup-val">${medidor}</span></div>
         <div class="popup-row"><span class="popup-key">Latitude</span><span class="popup-val">${s.lat}</span></div>
         <div class="popup-row"><span class="popup-key">Longitude</span><span class="popup-val">${s.lng}</span></div>
-        ${isProx ? '<div style="font-size:11px;color:#e87722;font-weight:600;margin-top:6px;">📍 Dentro do raio de 2,5km</div>' : ''}
+        ${''}
         <div style="display:flex;gap:6px;margin-top:12px;">
           <a href="${googleMapsUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#1a2a8f;color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🗺️ Google Maps</a>
           <a href="${wazeUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#33ccff;color:#0d1230;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🚗 Waze</a>
@@ -862,7 +1006,7 @@ function renderMarkers(services, proximos = null, showAll = false) {
     markers.push(m);
   });
 
-  updateLegend();
+  updateLegend(toShow.length > 0);
 
   if (proximos !== null) {
     updateStat(proximos.size, true);
@@ -887,8 +1031,21 @@ async function concluirServico(id, btn) {
   if (!confirm('Confirma a conclusao deste servico?')) return;
   btn.disabled = true; btn.textContent = 'Removendo...';
   try {
-    const { doc, deleteDoc } = window._fbFns;
-    await deleteDoc(doc(window._db, 'services', id));
+    const { doc, deleteDoc, addDoc, collection } = window._fbFns;
+    const db = window._db;
+
+    // Save to history before deleting
+    const service = allServices.find(s => s.id === id);
+    if (service) {
+      await addDoc(collection(db, 'history'), {
+        ...service,
+        concludedAt: new Date().toISOString(),
+        concludedBy: currentUser?.name || currentUser?.email || 'Desconhecido',
+        concludedByEmail: currentUser?.email || ''
+      });
+    }
+
+    await deleteDoc(doc(db, 'services', id));
     allServices = allServices.filter(s => s.id !== id);
 
     // Find and remove only this specific marker
@@ -899,7 +1056,7 @@ async function concluirServico(id, btn) {
     }
 
     updateStat(markers.length, lastSearchDone);
-    showToast('Servico concluido e removido!', 'success');
+    showToast('Servico concluido e registrado no historico!', 'success');
   } catch(e) {
     showToast('Erro ao remover servico.', 'error');
     btn.disabled = false; btn.textContent = 'Marcar como concluido';
@@ -1142,6 +1299,127 @@ async function saveManualData() {
   await saveServicesToDB(services);
   showUploadStatus(true, `${services.length} ocorrência(s) salvas.${skipped > 0 ? ` ${skipped} linha(s) ignoradas por falta de coordenadas.` : ''}`);
   showToast(`${services.length} ocorrências salvas!`, 'success');
+}
+
+// HISTORY
+let allHistory = [];
+let filteredHistory = [];
+
+async function loadHistory() {
+  const { collection, getDocs, query, orderBy } = window._fbFns;
+  const db = window._db;
+  try {
+    const q = query(collection(db, 'history'), orderBy('concludedAt', 'desc'));
+    const snap = await getDocs(q);
+    allHistory = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  } catch(e) {
+    // fallback without orderBy if index not ready
+    const snap = await getDocs(collection(db, 'history'));
+    allHistory = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+    allHistory.sort((a, b) => (b.concludedAt || '').localeCompare(a.concludedAt || ''));
+  }
+  filteredHistory = [...allHistory];
+  updateHistoryStats();
+  renderHistoryTable(filteredHistory);
+}
+
+function updateHistoryStats() {
+  document.getElementById('histStatTotal').textContent = allHistory.length;
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const todayCount = allHistory.filter(h => (h.concludedAt || '').startsWith(today)).length;
+  const weekCount = allHistory.filter(h => (h.concludedAt || '') >= weekAgo).length;
+  document.getElementById('histStatToday').textContent = todayCount;
+  document.getElementById('histStatWeek').textContent = weekCount;
+}
+
+function renderHistoryTable(rows) {
+  const tbody = document.getElementById('historyBody');
+  if (rows.length === 0) {
+    const msg = allHistory.length === 0
+      ? '<h3>Nenhum serviço concluído ainda</h3><p>Os serviços marcados como concluídos aparecerão aqui.</p>'
+      : '<h3>Nenhum resultado encontrado</h3><p>Tente ajustar o filtro de busca.</p>';
+    tbody.innerHTML = `<tr><td colspan="6"><div class="history-empty"><div class="icon">📋</div>${msg}</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(h => {
+    const color = getMotiveColor(h.motivo);
+    const date = h.concludedAt ? formatDate(h.concludedAt) : '—';
+    return `<tr>
+      <td style="font-weight:600">${h.ocorrencia || '—'}</td>
+      <td><span class="hist-badge-motivo" style="background:${color}22;color:${color}">${h.motivo || '—'}</span></td>
+      <td>${h.cliente || '—'}</td>
+      <td>${h.medidor || '—'}</td>
+      <td class="hist-concluded-by"><strong>${h.concludedBy || '—'}</strong><br><span>${h.concludedByEmail || ''}</span></td>
+      <td style="white-space:nowrap;color:var(--muted)">${date}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterHistory() {
+  const q = document.getElementById('historySearch').value.toLowerCase().trim();
+  if (!q) {
+    filteredHistory = [...allHistory];
+  } else {
+    filteredHistory = allHistory.filter(h =>
+      (h.ocorrencia || '').toLowerCase().includes(q) ||
+      (h.motivo || '').toLowerCase().includes(q) ||
+      (h.cliente || '').toLowerCase().includes(q) ||
+      (h.medidor || '').toLowerCase().includes(q) ||
+      (h.concludedBy || '').toLowerCase().includes(q)
+    );
+  }
+  renderHistoryTable(filteredHistory);
+}
+
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch(e) { return iso; }
+}
+
+async function clearHistory() {
+  if (!confirm(`Tem certeza que deseja apagar TODO o histórico (${allHistory.length} registros)? Esta ação não pode ser desfeita.`)) return;
+  const { collection, getDocs, writeBatch } = window._fbFns;
+  const db = window._db;
+  try {
+    const snap = await getDocs(collection(db, 'history'));
+    const batches = [];
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = writeBatch(db);
+      snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+      batches.push(batch.commit());
+    }
+    await Promise.all(batches);
+    allHistory = []; filteredHistory = [];
+    updateHistoryStats();
+    renderHistoryTable([]);
+    showToast('Histórico apagado com sucesso.', 'success');
+  } catch(e) {
+    showToast('Erro ao apagar histórico.', 'error');
+  }
+}
+
+function exportHistoryToExcel() {
+  if (allHistory.length === 0) { showToast('Nenhum dado para exportar.', 'error'); return; }
+  const data = allHistory.map(h => ({
+    'Nº Ocorrência': h.ocorrencia || '',
+    'Motivo': h.motivo || '',
+    'Cliente': h.cliente || '',
+    'Medidor': h.medidor || '',
+    'Latitude': h.lat || '',
+    'Longitude': h.lng || '',
+    'Concluído por': h.concludedBy || '',
+    'E-mail': h.concludedByEmail || '',
+    'Data/Hora': h.concludedAt ? formatDate(h.concludedAt) : ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `historico_servicos_${today}.xlsx`);
+  showToast('Exportado com sucesso!', 'success');
 }
 
 // UTILS
