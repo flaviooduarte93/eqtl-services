@@ -357,6 +357,14 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 }
 .btn-save-manual:hover { background: var(--accent2); }
 
+.btn-restore {
+  padding: 5px 11px; background: transparent; border: 1.5px solid #00a651;
+  color: #00a651; border-radius: 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; white-space: nowrap;
+}
+.btn-restore:hover { background: #00a651; color: white; }
+.btn-restore:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* CHART */
 .chart-section {
   background: white; border-radius: 12px; border: 1px solid var(--border);
@@ -740,6 +748,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
             <th>Medidor</th>
             <th>Concluído por</th>
             <th>Data / Hora</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="historyBody">
@@ -1411,7 +1420,7 @@ function renderHistoryTable(rows) {
     const msg = allHistory.length === 0
       ? '<h3>Nenhum serviço concluído ainda</h3><p>Os serviços marcados como concluídos aparecerão aqui.</p>'
       : '<h3>Nenhum resultado encontrado</h3><p>Tente ajustar o filtro de busca.</p>';
-    tbody.innerHTML = `<tr><td colspan="6"><div class="history-empty"><div class="icon">📋</div>${msg}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="history-empty"><div class="icon">📋</div>${msg}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(h => {
@@ -1424,8 +1433,46 @@ function renderHistoryTable(rows) {
       <td>${h.medidor || '—'}</td>
       <td class="hist-concluded-by"><strong>${h.concludedBy || '—'}</strong><br><span>${h.concludedByEmail || ''}</span></td>
       <td style="white-space:nowrap;color:var(--muted)">${date}</td>
+      <td><button class="btn-restore" onclick="restaurarServico('${h._docId}', this)" title="Devolver para a base">↩ Restaurar</button></td>
     </tr>`;
   }).join('');
+}
+
+async function restaurarServico(docId, btn) {
+  if (!confirm('Deseja restaurar este serviço para a base? Ele voltará a aparecer no mapa.')) return;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const { doc, deleteDoc, setDoc, collection } = window._fbFns;
+    const db = window._db;
+
+    // Find the record in allHistory
+    const record = allHistory.find(h => h._docId === docId);
+    if (!record) { showToast('Registro não encontrado.', 'error'); btn.disabled = false; btn.textContent = '↩ Restaurar'; return; }
+
+    // Rebuild clean service object (remove history-specific fields)
+    const { _docId, concludedAt, concludedBy, concludedByEmail, ...service } = record;
+
+    // Save back to services collection
+    await setDoc(doc(db, 'services', service.id), service);
+
+    // Remove from history
+    await deleteDoc(doc(db, 'history', docId));
+
+    // Update local state
+    allHistory = allHistory.filter(h => h._docId !== docId);
+    filteredHistory = filteredHistory.filter(h => h._docId !== docId);
+    allServices.push(service);
+
+    updateHistoryStats();
+    renderHistoryTable(filteredHistory);
+    renderChart();
+    updateStat(allServices.length, false);
+    showToast(`Ocorrência ${record.ocorrencia} restaurada com sucesso!`, 'success');
+  } catch(e) {
+    console.error(e);
+    showToast('Erro ao restaurar serviço.', 'error');
+    btn.disabled = false; btn.textContent = '↩ Restaurar';
+  }
 }
 
 function filterHistory() {
