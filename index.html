@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -356,6 +357,50 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 }
 .btn-save-manual:hover { background: var(--accent2); }
 
+/* CHART */
+.chart-section {
+  background: white; border-radius: 12px; border: 1px solid var(--border);
+  box-shadow: var(--shadow); padding: 20px 24px; margin-bottom: 24px;
+}
+.chart-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 18px;
+}
+.chart-section-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+.chart-period-tabs {
+  display: flex; gap: 0; background: var(--surface2); border-radius: 8px;
+  padding: 3px; border: 1px solid var(--border);
+}
+.chart-period-tab {
+  padding: 6px 14px; border: none; background: transparent; border-radius: 6px;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; color: var(--muted); transition: all 0.2s;
+}
+.chart-period-tab.active { background: white; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.chart-custom-range {
+  display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+}
+.chart-custom-range.show { display: flex; }
+.chart-custom-range label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.chart-date-input {
+  padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 7px;
+  font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text);
+  outline: none; background: var(--surface2); transition: border-color 0.2s;
+}
+.chart-date-input:focus { border-color: var(--accent); }
+.btn-apply-range {
+  padding: 7px 14px; background: var(--accent); color: white; border: none;
+  border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: background 0.2s;
+}
+.btn-apply-range:hover { background: var(--accent2); }
+.chart-canvas-wrap { position: relative; height: 260px; }
+.chart-empty {
+  display: flex; align-items: center; justify-content: center;
+  height: 260px; color: var(--muted); font-size: 13px; flex-direction: column; gap: 8px;
+}
+.chart-empty .icon { font-size: 32px; }
+
 /* HISTORY SCREEN */
 .history-header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .history-header h1 { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 4px; }
@@ -651,6 +696,32 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         <div>
           <div class="hist-stat-num" id="histStatWeek">0</div>
           <div class="hist-stat-label">esta semana</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART SECTION -->
+    <div class="chart-section">
+      <div class="chart-section-header">
+        <div class="chart-section-title">📊 Serviços Concluídos por Período</div>
+        <div class="chart-period-tabs">
+          <button class="chart-period-tab active" id="chartTabDay" onclick="setChartPeriod('day')">Diário</button>
+          <button class="chart-period-tab" id="chartTabMonth" onclick="setChartPeriod('month')">Mensal</button>
+          <button class="chart-period-tab" id="chartTabCustom" onclick="setChartPeriod('custom')">Personalizado</button>
+        </div>
+      </div>
+      <div class="chart-custom-range" id="chartCustomRange">
+        <label>De</label>
+        <input type="date" class="chart-date-input" id="chartDateFrom">
+        <label>até</label>
+        <input type="date" class="chart-date-input" id="chartDateTo">
+        <button class="btn-apply-range" onclick="applyCustomRange()">Aplicar</button>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="historyChart"></canvas>
+        <div class="chart-empty" id="chartEmpty" style="display:none">
+          <div class="icon">📭</div>
+          <span>Nenhum dado para exibir neste período</span>
         </div>
       </div>
     </div>
@@ -1321,6 +1392,7 @@ async function loadHistory() {
   filteredHistory = [...allHistory];
   updateHistoryStats();
   renderHistoryTable(filteredHistory);
+  renderChart();
 }
 
 function updateHistoryStats() {
@@ -1370,6 +1442,180 @@ function filterHistory() {
     );
   }
   renderHistoryTable(filteredHistory);
+}
+
+// CHART
+let historyChart = null;
+let chartPeriod = 'day';
+
+function setChartPeriod(period) {
+  chartPeriod = period;
+  document.getElementById('chartTabDay').classList.toggle('active', period === 'day');
+  document.getElementById('chartTabMonth').classList.toggle('active', period === 'month');
+  document.getElementById('chartTabCustom').classList.toggle('active', period === 'custom');
+  const customRange = document.getElementById('chartCustomRange');
+  customRange.classList.toggle('show', period === 'custom');
+  if (period !== 'custom') renderChart();
+}
+
+function applyCustomRange() {
+  const from = document.getElementById('chartDateFrom').value;
+  const to = document.getElementById('chartDateTo').value;
+  if (!from || !to) { showToast('Selecione as duas datas.', 'error'); return; }
+  if (from > to) { showToast('A data inicial deve ser anterior à final.', 'error'); return; }
+  renderChart();
+}
+
+function renderChart() {
+  const canvas = document.getElementById('historyChart');
+  const emptyEl = document.getElementById('chartEmpty');
+
+  let labels = [];
+  let data = [];
+
+  if (chartPeriod === 'day') {
+    // Last 30 days
+    const counts = {};
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      counts[key] = 0;
+    }
+    allHistory.forEach(h => {
+      const key = (h.concludedAt || '').slice(0, 10);
+      if (key in counts) counts[key]++;
+    });
+    labels = Object.keys(counts).map(k => {
+      const [y, m, d] = k.split('-');
+      return `${d}/${m}`;
+    });
+    data = Object.values(counts);
+
+  } else if (chartPeriod === 'month') {
+    // Last 12 months
+    const counts = {};
+    const today = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      counts[key] = 0;
+    }
+    allHistory.forEach(h => {
+      const key = (h.concludedAt || '').slice(0, 7);
+      if (key in counts) counts[key]++;
+    });
+    const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    labels = Object.keys(counts).map(k => {
+      const [y, m] = k.split('-');
+      return `${monthNames[parseInt(m)-1]}/${y.slice(2)}`;
+    });
+    data = Object.values(counts);
+
+  } else if (chartPeriod === 'custom') {
+    const from = document.getElementById('chartDateFrom').value;
+    const to = document.getElementById('chartDateTo').value;
+    if (!from || !to) return;
+    const counts = {};
+    const start = new Date(from);
+    const end = new Date(to);
+    const diffDays = Math.round((end - start) / 86400000);
+
+    if (diffDays <= 31) {
+      // Daily granularity
+      for (let i = 0; i <= diffDays; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        counts[d.toISOString().slice(0, 10)] = 0;
+      }
+      allHistory.forEach(h => {
+        const key = (h.concludedAt || '').slice(0, 10);
+        if (key in counts) counts[key]++;
+      });
+      labels = Object.keys(counts).map(k => {
+        const [y, m, d] = k.split('-');
+        return `${d}/${m}`;
+      });
+    } else {
+      // Monthly granularity
+      let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+      while (cur <= endMonth) {
+        const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+        counts[key] = 0;
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      allHistory.forEach(h => {
+        const key = (h.concludedAt || '').slice(0, 7);
+        if (key in counts) counts[key]++;
+      });
+      const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      labels = Object.keys(counts).map(k => {
+        const [y, m] = k.split('-');
+        return `${monthNames[parseInt(m)-1]}/${y.slice(2)}`;
+      });
+    }
+    data = Object.values(counts);
+  }
+
+  const hasData = data.some(v => v > 0);
+  canvas.style.display = hasData ? 'block' : 'none';
+  emptyEl.style.display = hasData ? 'none' : 'flex';
+
+  if (!hasData) {
+    if (historyChart) { historyChart.destroy(); historyChart = null; }
+    return;
+  }
+
+  if (historyChart) historyChart.destroy();
+
+  historyChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Serviços concluídos',
+        data,
+        backgroundColor: 'rgba(26,42,143,0.75)',
+        borderColor: '#1a2a8f',
+        borderWidth: 0,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1230',
+          titleFont: { family: 'Syne', size: 13 },
+          bodyFont: { family: 'Inter', size: 12 },
+          padding: 10,
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.y} serviço(s)`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Inter', size: 11 }, color: '#6b7a99' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            font: { family: 'Inter', size: 11 }, color: '#6b7a99',
+            callback: v => Number.isInteger(v) ? v : null
+          },
+          grid: { color: '#f0f4f8' }
+        }
+      }
+    }
+  });
 }
 
 function formatDate(iso) {
