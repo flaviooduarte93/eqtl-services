@@ -1723,5 +1723,62 @@ function showToast(msg, type='') {
   setTimeout(() => t.className = 'toast', 3000);
 }
 </script>
+<!-- UPDATE BANNER -->
+<div id="updateBanner" style="
+  display:none; position:fixed; bottom:72px; left:50%; transform:translateX(-50%);
+  background:#0d1230; color:white; padding:12px 20px; border-radius:10px;
+  font-size:13px; z-index:9999; box-shadow:0 8px 32px rgba(0,0,0,0.2);
+  display:none; align-items:center; gap:12px; white-space:nowrap;
+">
+  🔄 Nova versão disponível!
+  <button onclick="applyUpdate()" style="
+    background:#e87722; border:none; color:white; padding:6px 14px;
+    border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  ">Atualizar agora</button>
+</div>
+
+<script>
+// ── SERVICE WORKER REGISTRATION ───────────────────────────────
+if ('serviceWorker' in navigator) {
+  let newWorker = null;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('[SW] Registrado:', reg.scope);
+
+        // Nova versão detectada
+        reg.addEventListener('updatefound', () => {
+          newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Já existe um SW ativo — mostrar banner de atualização
+              document.getElementById('updateBanner').style.display = 'flex';
+            }
+          });
+        });
+
+        // Verifica update ao focar a aba
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update();
+        });
+      })
+      .catch(err => console.warn('[SW] Falha no registro:', err));
+
+    // Reload automático quando o novo SW assumir o controle
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  });
+}
+
+function applyUpdate() {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+  }
+  document.getElementById('updateBanner').style.display = 'none';
+}
+</script>
 </body>
 </html>
