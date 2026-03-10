@@ -244,6 +244,43 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .badge-equatorial { background: rgba(26,42,143,0.1); color: #1a2a8f; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
 .badge-parceira { background: rgba(246,173,85,0.15); color: #c05621; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
 
+/* MAP SEARCH */
+.map-search-wrap {
+  position: relative; flex: 1; min-width: 200px; max-width: 340px;
+}
+.map-search-input {
+  width: 100%; padding: 10px 36px 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--text); outline: none; background: var(--surface2);
+  transition: border-color 0.2s;
+}
+.map-search-input:focus { border-color: var(--accent); background: white; }
+.map-search-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-size: 16px; line-height: 1; padding: 0; display: none;
+  transition: color 0.2s;
+}
+.map-search-clear.show { display: block; }
+.map-search-clear:hover { color: var(--danger); }
+.map-search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: white; border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-lg); z-index: 500; max-height: 280px;
+  overflow-y: auto; display: none;
+}
+.map-search-results.show { display: block; }
+.map-search-item {
+  padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+  transition: background 0.15s; display: flex; flex-direction: column; gap: 2px;
+}
+.map-search-item:last-child { border-bottom: none; }
+.map-search-item:hover, .map-search-item.active { background: var(--surface2); }
+.map-search-item-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.map-search-item-sub { font-size: 11px; color: var(--muted); }
+.map-search-item em { font-style: normal; background: rgba(232,119,34,0.2); color: #c05621; border-radius: 2px; padding: 0 2px; }
+.map-search-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
 /* RADIUS CIRCLE */
 .radius-info { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .dot-green { width: 8px; height: 8px; border-radius: 50%; background: #1a2a8f; flex-shrink: 0; }
@@ -657,6 +694,15 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     <div class="map-toolbar">
       <button class="btn-search" id="btnBuscar" onclick="buscarProximos()">📍 Buscar serviços próximos</button>
       <button class="btn-reset" onclick="resetarBusca()">Mostrar todos</button>
+      <div class="map-search-wrap">
+        <input type="text" class="map-search-input" id="mapSearchInput"
+               placeholder="🔍  Buscar ocorrência, cliente, motivo..."
+               oninput="onMapSearch(this.value)"
+               onkeydown="onMapSearchKey(event)"
+               autocomplete="off">
+        <button class="map-search-clear" id="mapSearchClear" onclick="clearMapSearch()" title="Limpar busca">×</button>
+        <div class="map-search-results" id="mapSearchResults"></div>
+      </div>
       <div class="stat-card">
         <div>
           <div class="stat-num" id="statNum">0</div>
@@ -746,7 +792,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
             <th>Motivo</th>
             <th>Cliente</th>
             <th>Medidor</th>
-            <th>Concluído por</th>
+            <th>Executado por</th>
+            <th>Registrado por</th>
             <th>Data / Hora</th>
             <th></th>
           </tr>
@@ -1076,10 +1123,25 @@ function renderMarkers(services, proximos = null, showAll = false) {
         <div class="popup-row"><span class="popup-key">Medidor</span><span class="popup-val">${medidor}</span></div>
         <div class="popup-row"><span class="popup-key">Latitude</span><span class="popup-val">${s.lat}</span></div>
         <div class="popup-row"><span class="popup-key">Longitude</span><span class="popup-val">${s.lng}</span></div>
-        ${''}
         <div style="display:flex;gap:6px;margin-top:12px;">
           <a href="${googleMapsUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#1a2a8f;color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🗺️ Google Maps</a>
           <a href="${wazeUrl}" target="_blank" style="flex:1;text-align:center;padding:7px 4px;background:#33ccff;color:#0d1230;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🚗 Waze</a>
+        </div>
+        <div style="margin-top:12px;">
+          <label style="font-size:11px;font-weight:600;color:#6b7a99;display:block;margin-bottom:5px;letter-spacing:0.3px;">EXECUTADO POR</label>
+          <input
+            type="text"
+            id="execInput_${s.id}"
+            placeholder="Ex: GOOE001M"
+            oninput="this.value=this.value.toUpperCase()"
+            style="width:100%;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:7px;
+                   font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+                   letter-spacing:0.5px;text-transform:uppercase;outline:none;
+                   background:#f0f4fa;color:#0d1230;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#1a2a8f';this.style.background='white'"
+            onblur="this.style.borderColor='#dde3ee';this.style.background='#f0f4fa'"
+          >
+          <div id="execError_${s.id}" style="font-size:11px;color:#e53e3e;margin-top:4px;display:none;">Informe quem executou o serviço.</div>
         </div>
         <button class="btn-concluir" onclick="concluirServico('${s.id}', this)">Marcar como concluido</button>
       </div>`);
@@ -1108,7 +1170,19 @@ function updateStat(count, filtered) {
 }
 
 async function concluirServico(id, btn) {
-  if (!confirm('Confirma a conclusao deste servico?')) return;
+  // Valida campo "Executado por"
+  const execInput = document.getElementById(`execInput_${id}`);
+  const execError = document.getElementById(`execError_${id}`);
+  const executadoPor = execInput ? execInput.value.trim().toUpperCase() : '';
+
+  if (!executadoPor) {
+    if (execError) execError.style.display = 'block';
+    if (execInput) { execInput.style.borderColor = '#e53e3e'; execInput.focus(); }
+    return;
+  }
+  if (execError) execError.style.display = 'none';
+
+  if (!confirm(`Confirmar conclusão do serviço executado por ${executadoPor}?`)) return;
   btn.disabled = true; btn.textContent = 'Removendo...';
   try {
     const { doc, deleteDoc, addDoc, collection } = window._fbFns;
@@ -1121,7 +1195,8 @@ async function concluirServico(id, btn) {
         ...service,
         concludedAt: new Date().toISOString(),
         concludedBy: currentUser?.name || currentUser?.email || 'Desconhecido',
-        concludedByEmail: currentUser?.email || ''
+        concludedByEmail: currentUser?.email || '',
+        executadoPor: executadoPor
       });
     }
 
@@ -1142,6 +1217,122 @@ async function concluirServico(id, btn) {
     btn.disabled = false; btn.textContent = 'Marcar como concluido';
   }
 }
+
+// MAP SEARCH
+let mapSearchTimeout = null;
+let mapSearchSelectedIndex = -1;
+let mapSearchResults = [];
+let highlightedMarker = null;
+
+function onMapSearch(value) {
+  const clearBtn = document.getElementById('mapSearchClear');
+  clearBtn.classList.toggle('show', value.length > 0);
+
+  clearTimeout(mapSearchTimeout);
+  if (!value.trim()) { closeMapSearchResults(); return; }
+
+  mapSearchTimeout = setTimeout(() => {
+    const q = value.toLowerCase().trim();
+    mapSearchResults = allServices.filter(s =>
+      (s.ocorrencia || '').toLowerCase().includes(q) ||
+      (s.cliente    || '').toLowerCase().includes(q) ||
+      (s.motivo     || '').toLowerCase().includes(q) ||
+      (s.medidor    || '').toLowerCase().includes(q)
+    ).slice(0, 10);
+    renderMapSearchResults(q);
+  }, 200);
+}
+
+function highlight(text, q) {
+  if (!q) return text;
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return text;
+  return text.slice(0, idx) + '<em>' + text.slice(idx, idx + q.length) + '</em>' + text.slice(idx + q.length);
+}
+
+function renderMapSearchResults(q) {
+  const el = document.getElementById('mapSearchResults');
+  mapSearchSelectedIndex = -1;
+
+  if (mapSearchResults.length === 0) {
+    el.innerHTML = '<div class="map-search-empty">Nenhuma ocorrência encontrada</div>';
+    el.classList.add('show');
+    return;
+  }
+
+  el.innerHTML = mapSearchResults.map((s, i) => `
+    <div class="map-search-item" data-idx="${i}" onclick="selectMapSearchResult(${i})">
+      <div class="map-search-item-title">${highlight(s.ocorrencia || '—', q)}</div>
+      <div class="map-search-item-sub">
+        ${highlight(s.motivo || '', q)}${s.cliente ? ' · ' + highlight(s.cliente, q) : ''}
+        ${s.medidor ? ' · ' + highlight(s.medidor, q) : ''}
+      </div>
+    </div>`).join('');
+  el.classList.add('show');
+}
+
+function onMapSearchKey(e) {
+  const items = document.querySelectorAll('.map-search-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    mapSearchSelectedIndex = Math.min(mapSearchSelectedIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === mapSearchSelectedIndex));
+    items[mapSearchSelectedIndex]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    mapSearchSelectedIndex = Math.max(mapSearchSelectedIndex - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('active', i === mapSearchSelectedIndex));
+    items[mapSearchSelectedIndex]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    if (mapSearchSelectedIndex >= 0) selectMapSearchResult(mapSearchSelectedIndex);
+    else if (mapSearchResults.length === 1) selectMapSearchResult(0);
+  } else if (e.key === 'Escape') {
+    clearMapSearch();
+  }
+}
+
+function selectMapSearchResult(idx) {
+  const service = mapSearchResults[idx];
+  if (!service) return;
+
+  closeMapSearchResults();
+  document.getElementById('mapSearchInput').value = service.ocorrencia;
+  document.getElementById('mapSearchClear').classList.add('show');
+
+  // Garante que o marcador está no mapa
+  const alreadyVisible = markers.find(m => m._serviceId === service.id);
+  if (!alreadyVisible) {
+    // Renderiza só esse serviço no mapa
+    renderMarkers([service], null, true);
+  }
+
+  // Destaca e abre popup do marcador
+  const marker = markers.find(m => m._serviceId === service.id);
+  if (marker) {
+    map.setView([service.lat, service.lng], 16, { animate: true });
+    setTimeout(() => marker.openPopup(), 400);
+  }
+}
+
+function clearMapSearch() {
+  document.getElementById('mapSearchInput').value = '';
+  document.getElementById('mapSearchClear').classList.remove('show');
+  mapSearchResults = [];
+  closeMapSearchResults();
+}
+
+function closeMapSearchResults() {
+  const el = document.getElementById('mapSearchResults');
+  el.classList.remove('show');
+  el.innerHTML = '';
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', e => {
+  if (!e.target.closest('.map-search-wrap')) closeMapSearchResults();
+});
 
 function buscarProximos() {
   const btn = document.getElementById('btnBuscar');
@@ -1420,7 +1611,7 @@ function renderHistoryTable(rows) {
     const msg = allHistory.length === 0
       ? '<h3>Nenhum serviço concluído ainda</h3><p>Os serviços marcados como concluídos aparecerão aqui.</p>'
       : '<h3>Nenhum resultado encontrado</h3><p>Tente ajustar o filtro de busca.</p>';
-    tbody.innerHTML = `<tr><td colspan="7"><div class="history-empty"><div class="icon">📋</div>${msg}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="history-empty"><div class="icon">📋</div>${msg}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(h => {
@@ -1431,6 +1622,7 @@ function renderHistoryTable(rows) {
       <td><span class="hist-badge-motivo" style="background:${color}22;color:${color}">${h.motivo || '—'}</span></td>
       <td>${h.cliente || '—'}</td>
       <td>${h.medidor || '—'}</td>
+      <td style="font-weight:700;letter-spacing:0.5px;color:var(--accent)">${h.executadoPor || '—'}</td>
       <td class="hist-concluded-by"><strong>${h.concludedBy || '—'}</strong><br><span>${h.concludedByEmail || ''}</span></td>
       <td style="white-space:nowrap;color:var(--muted)">${date}</td>
       <td><button class="btn-restore" onclick="restaurarServico('${h._docId}', this)" title="Devolver para a base">↩ Restaurar</button></td>
@@ -1450,7 +1642,7 @@ async function restaurarServico(docId, btn) {
     if (!record) { showToast('Registro não encontrado.', 'error'); btn.disabled = false; btn.textContent = '↩ Restaurar'; return; }
 
     // Rebuild clean service object (remove history-specific fields)
-    const { _docId, concludedAt, concludedBy, concludedByEmail, ...service } = record;
+    const { _docId, concludedAt, concludedBy, concludedByEmail, executadoPor, ...service } = record;
 
     // Save back to services collection
     await setDoc(doc(db, 'services', service.id), service);
@@ -1703,7 +1895,8 @@ function exportHistoryToExcel() {
     'Medidor': h.medidor || '',
     'Latitude': h.lat || '',
     'Longitude': h.lng || '',
-    'Concluído por': h.concludedBy || '',
+    'Executado por': h.executadoPor || '',
+    'Registrado por': h.concludedBy || '',
     'E-mail': h.concludedByEmail || '',
     'Data/Hora': h.concludedAt ? formatDate(h.concludedAt) : ''
   }));
