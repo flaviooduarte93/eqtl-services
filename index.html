@@ -1597,10 +1597,21 @@ async function loadHistory() {
 
 function updateHistoryStats() {
   document.getElementById('histStatTotal').textContent = allHistory.length;
-  const today = new Date().toISOString().slice(0, 10);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-  const todayCount = allHistory.filter(h => (h.concludedAt || '').startsWith(today)).length;
-  const weekCount = allHistory.filter(h => (h.concludedAt || '') >= weekAgo).length;
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const weekAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  const todayCount = allHistory.filter(h => {
+    if (!h.concludedAt) return false;
+    const d = new Date(h.concludedAt);
+    const dLocal = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return dLocal === todayLocal;
+  }).length;
+
+  const weekCount = allHistory.filter(h => {
+    if (!h.concludedAt) return false;
+    return new Date(h.concludedAt).getTime() >= weekAgoMs;
+  }).length;
   document.getElementById('histStatToday').textContent = todayCount;
   document.getElementById('histStatWeek').textContent = weekCount;
 }
